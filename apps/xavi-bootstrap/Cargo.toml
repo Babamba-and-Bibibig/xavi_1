@@ -1,0 +1,14 @@
+[package]
+name = "xavi-bootstrap"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+xavi-application = { path = "../../crates/xavi-application" }
+xavi-infrastructure = { path = "../../crates/xavi-infrastructure" }

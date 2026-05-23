@@ -26,11 +26,19 @@
 ### Next Owner
 
 - 다음에 누가 이어야 하는가
-- `review`, `planning`, `codegen`, `user-docs` 등
+- `orchestra`, `analysis`, `review`, `test`, `planning`, `codegen`, `ai-docs`, `user-docs` 등
 
 ### Return Summary
 
 - 사용자나 상위 세션에 바로 반환할 짧은 요약
+
+### Context Report
+
+- `context_level`: `low` | `medium` | `high` | `near-limit`
+- `basis`: 이렇게 판단한 이유
+- `read_files`: 이번 작업에서 읽은 주요 파일
+- `carryover_summary`: 다음 에이전트가 이어받아야 할 5줄 이하 요약
+- `recommended_action`: `continue` | `close_and_respawn`
 
 ## Cleanup Rule
 

@@ -48,8 +48,6 @@ xavi_1/
 ├── .gitignore
 ├── ender.md
 ├── inject_subject_once.md
-├── LICENSE-MIT
-├── LICENSE-APACHE
 ├── rustfmt.toml
 └── starter.md
 ```
@@ -353,11 +351,6 @@ xavi_1/
 
 Rust 코드 포맷 규칙을 프로젝트 차원에서 통일하기 위한 파일이다.
 팀 작업과 자동 생성 코드 품질을 일정하게 유지하는 데 중요하다.
-
-### `LICENSE-MIT` / `LICENSE-APACHE`
-
-워크스페이스 `Cargo.toml` 의 `MIT OR Apache-2.0` 라이선스 선언에 대응하는 공개 라이선스 본문이다.
-GitHub 공유 시 라이선스 선언과 실제 라이선스 파일이 함께 있어야 사용자가 재사용 조건을 명확히 이해할 수 있다.
 
 ## 의존 방향 정리
 

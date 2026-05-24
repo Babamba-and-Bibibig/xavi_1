@@ -35,8 +35,6 @@
 - `crates/xavi-harness`: 시나리오 기반 검증 하네스
 - `apps/xavi-bootstrap`: 실제 실행 진입점과 composition root
 
-라이선스는 `MIT OR Apache-2.0`입니다. 자세한 내용은 `LICENSE-MIT`와 `LICENSE-APACHE`를 확인하세요.
-
 문서 구조는 다음 역할을 유지합니다.
 
 - `orchestra`: 사용자와 대화하고 전체 흐름을 조율하는 최상위 역할
@@ -235,8 +233,6 @@ AI가 혼자 계획, 구현, 검수, 테스트, 문서화를 모두 처리하면
 ├── inject_subject_once.md       # 프로젝트 주제 최초 주입 규약
 ├── ender.md                     # 세션 종료와 인계 규약
 ├── Cargo.lock                   # 재현 가능한 Cargo 해석 결과
-├── LICENSE-MIT
-├── LICENSE-APACHE
 └── README.md
 ```
 
@@ -291,8 +287,6 @@ The code keeps these layers:
 - `crates/xavi-infrastructure`: external system adapters
 - `crates/xavi-harness`: scenario-based verification harness
 - `apps/xavi-bootstrap`: executable entrypoint and composition root
-
-The project is licensed as `MIT OR Apache-2.0`. See `LICENSE-MIT` and `LICENSE-APACHE`.
 
 The documentation keeps these roles:
 
@@ -492,8 +486,6 @@ When used properly, this bootstrap should help you:
 ├── inject_subject_once.md       # first subject injection protocol
 ├── ender.md                     # session shutdown and handoff protocol
 ├── Cargo.lock                   # reproducible Cargo resolution
-├── LICENSE-MIT
-├── LICENSE-APACHE
 └── README.md
 ```
 

@@ -25,7 +25,7 @@
 - 각 서브 에이전트는 자기 역할 시작 폴더를 먼저 읽고 숙지한 뒤에만 실제 작업을 시작한다.
 - `orchestra` 는 서브 에이전트 생성 때 역할 설명 전문을 반복하지 않고, 역할명과 먼저 읽을 역할 문서 경로만 짧게 전달한다.
 - 반복되는 금지사항, 체크리스트, 산출물 규칙은 각 역할의 `README.md` 가 담당한다.
-- `user-docs` 는 `docs/agent/user-docs/README.md` 를 먼저 읽고 역할 경계를 확정한 뒤, 정상 작업에서는 실제 사용자 문서를 `docs/human/user-docs/` 에서만 관리한다. 중간 중단 인계 종료에서는 자기 handoff 만 `docs/agent/user-docs/handoff/latest.md` 에 남긴다.
+- `user-docs` 는 `docs/agent/user-docs/README.md` 를 먼저 읽고 역할 경계를 확정한 뒤, 정상 작업에서는 `README.md` 와 `docs/human/` 의 사용자용 문서를 관리한다. 기본 작업 공간은 `docs/human/user-docs/` 이며, 프로젝트 주제 주입이나 공개 문서 갱신처럼 명시된 경우에는 `docs/human/` 일반 문서도 관리한다. 중간 중단 인계 종료에서는 자기 handoff 만 `docs/agent/user-docs/handoff/latest.md` 에 남긴다.
 - 단, `ai-docs` 는 AI 에이전트용 개발 문서 관리 역할이므로 `docs/agent/` 내부 역할 문서와 루트 운영 문서를 읽고 갱신할 수 있다.
 - `ai-docs` 를 제외한 역할 폴더 사이의 교차 읽기와 교차 수정은 금지한다.
 - 역할이 바뀌면 기존 세션을 재사용하지 않고 새 세션을 연다.
@@ -36,6 +36,7 @@
 - 문서가 불필요하게 누적되지 않게 항상 정리하고 압축해야 한다.
 - 서브 에이전트를 실행할 때는 사용 가능한 최신 프론티어급 모델을 기본으로 선택한다. 2026-05-22 현재 기준 기본값은 `gpt-5.5` 와 reasoning effort `xhigh` 다.
 - 기본 최상위 세션은 `orchestra` 이며, 계획 작업과 최종 완성도 보고도 반드시 `planning` 서브 에이전트로 실행한다.
+- 범용 health-check 부트스트랩 상태에서 사용자가 새 프로젝트 주제를 말하면, `orchestra` 는 일반 개발 업무보다 먼저 `inject_subject_once.md` 를 적용한다.
 - 사용자가 개발 업무를 주면 `orchestra` 는 기본 7개 서브 에이전트 `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs` 를 생성하거나 실행 준비한다.
 - 개발 업무 루프는 예시가 아니라 절대 고정 절차다. `planning` 뒤와 `codegen` 앞에는 사용자 보고/수정 게이트를 둔다. 역할 실행 순서는 `planning` → `codegen` → `review` → `codegen` → `test` → `analysis` → `codegen` → `review` → `codegen` → `test` → `analysis` → `codegen` → `test` → `planning` 보고다.
 - 첫 `test` 가 문제 없이 프로그램 실행, 목적 완수, 종료까지 확인하면 문제 분석/수정 루프를 건너뛰고 `orchestra` 에 성공 보고한 뒤 결과 취합 단계로 넘어간다.
@@ -58,7 +59,7 @@
 - `ephemeral` → `docs/agent/ephemeral/README.md`
 - `user-docs` → `docs/agent/user-docs/README.md`
 
-사용자 문서 전담 AI 도 먼저 `docs/agent/user-docs/README.md` 로 이동해 역할 경계를 확정한 뒤, 정상 작업에서는 실제 사용자 문서를 `docs/human/user-docs/` 에서만 관리한다. 중간 중단 인계 종료에서는 자기 handoff 만 `docs/agent/user-docs/handoff/latest.md` 에 남긴다.
+사용자 문서 전담 AI 도 먼저 `docs/agent/user-docs/README.md` 로 이동해 역할 경계를 확정한 뒤, 정상 작업에서는 `README.md` 와 `docs/human/` 의 사용자용 문서를 관리한다. 기본 작업 공간은 `docs/human/user-docs/` 이며, 중간 중단 인계 종료에서는 자기 handoff 만 `docs/agent/user-docs/handoff/latest.md` 에 남긴다.
 
 ## 운영 메모
 

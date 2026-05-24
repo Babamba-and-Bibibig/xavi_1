@@ -55,6 +55,11 @@
 - 두 번째 테스트에서 문제가 있으면 `test` 의 문제점 리스트를 받아 2차 근본 원인을 분석한다.
 - 두 번째 분석 이후에는 `codegen` 수정과 세 번째 `test` 로 넘어가며, `analysis` 가 임의로 추가 분석 라운드를 요구하지 않는다.
 
+## 종료 규칙
+
+세션 종료나 재시작 지시를 받으면 루트 `ender.md` 를 현재 역할 기준 종료 규약으로 적용한다.
+`ender.md` 가 `interrupted-handoff-close` 로 분류하면 정상 분석 메모 갱신을 멈추고 `docs/agent/analysis/handoff/latest.md` 에만 자기 인계를 남긴다.
+
 ## Context Report
 
 작업 종료 응답에는 아래 항목을 포함한다.

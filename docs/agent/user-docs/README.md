@@ -1,7 +1,8 @@
 # User Docs Agent Entry
 
 이 폴더는 사용자용 문서 전담 AI 에이전트가 가장 먼저 읽는 역할 진입 문서다.
-실제 사용자 문서는 정상 작업에서 `docs/human/user-docs/` 에서만 작성하고 관리한다.
+실제 사용자 문서는 정상 작업에서 `README.md` 와 `docs/human/` 아래에서 작성하고 관리한다.
+기본 작업 공간은 `docs/human/user-docs/` 이며, 프로젝트 주제 주입이나 공개 문서 갱신처럼 명시된 경우에만 루트 `README.md` 와 `docs/human/` 일반 문서도 갱신한다.
 이 파일의 운영 규칙 자체를 바꾸는 일은 `ai-docs` 역할이 맡고, `user-docs` 는 이 파일을 읽어 경계를 확정하는 데 사용한다.
 
 ## 담당 역할
@@ -15,13 +16,15 @@
 
 1. 이 파일 `docs/agent/user-docs/README.md` 를 먼저 읽고 역할 경계를 확정한다.
 2. 정상 사용자 문서 작업이면 실제 작업 문서인 `docs/human/user-docs/README.md` 로 이동한다.
-3. 이후 정상 작업의 사용자용 문서는 `docs/human/user-docs/` 안에서만 작성하고 갱신한다.
-4. `starter.md` 는 최상위 `orchestra` 전용 부팅 문서이므로, 이 서브 에이전트는 별도 지시가 없으면 읽지 않는다.
+3. 이후 정상 작업의 사용자용 문서는 기본적으로 `docs/human/user-docs/` 안에서 작성하고 갱신한다.
+4. `orchestra` 가 프로젝트 주제 주입, 공개 README, 사람용 구조 문서 갱신을 명시하면 `README.md` 와 `docs/human/` 일반 문서도 갱신할 수 있다.
+5. `starter.md` 는 최상위 `orchestra` 전용 부팅 문서이므로, 이 서브 에이전트는 별도 지시가 없으면 읽지 않는다.
 
 ## 접근 허용 범위
 
 - `docs/agent/user-docs/README.md`
-- `docs/human/user-docs/`
+- `README.md`
+- `docs/human/`
 - 중간 중단 인계 종료 시 `docs/agent/user-docs/handoff/latest.md`
 - `orchestra` 가 전달한 작업 입력
 - 사용자 문서 작성에 필요한 소스 코드와 설정 파일
@@ -30,12 +33,11 @@
 
 - `docs/agent/` 아래 다른 역할 폴더
 - `docs/agent/ai-docs/`
-- `docs/human/` 아래 `user-docs/` 밖의 문서
 
 ## 원칙
 
 - `user-docs` 는 사용자용 문서만 작성한다.
-- 이 파일은 역할 진입 기준으로 읽고, 정상 갱신 대상은 `docs/human/user-docs/` 로 제한한다. 중간 중단 인계 종료에서는 `docs/agent/user-docs/handoff/latest.md` 만 예외로 쓴다.
+- 이 파일은 역할 진입 기준으로 읽고, 정상 갱신 대상은 `README.md` 와 `docs/human/` 로 제한한다. 중간 중단 인계 종료에서는 `docs/agent/user-docs/handoff/latest.md` 만 예외로 쓴다.
 - AI 에이전트용 개발 문서는 `ai-docs` 역할에 맡긴다.
 - 내부 역할 메모, 검수 체크리스트, 다음 에이전트 인계 정보는 사용자 문서에 섞지 않는다.
 - 실제 코드와 문서에서 확인한 사실만 쓴다.
@@ -45,7 +47,7 @@
 
 ## 중간 중단 인계
 
-`ender.md` 가 `interrupted-handoff-close` 로 종료 유형을 분류하면 `user-docs` 는 `docs/human/user-docs/` 를 갱신하지 않는다.
+`ender.md` 가 `interrupted-handoff-close` 로 종료 유형을 분류하면 `user-docs` 는 `README.md` 나 `docs/human/` 을 갱신하지 않는다.
 이 경우 자기 작업 상태만 `docs/agent/user-docs/handoff/latest.md` 에 남긴다.
 
 남길 내용:

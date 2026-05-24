@@ -62,8 +62,8 @@ ender.md 읽어 세션 종료할꺼야
 
 사용자가 세션 재시작 또는 세션 종료를 지시하면, 그 시점의 작업 상태를 기준으로 아래처럼 처리한다.
 
-1. 그 시점 기준으로 정상적인 1회 작업 사이클이 완료되어 있으면 `normal-cycle-close` 로 처리한다.
-2. `normal-cycle-close` 에서는 `ai-docs` 와 `user-docs` 가 각각 자기 역할에 맞게 문서화 업데이트를 수행한다.
+1. 그 시점 기준으로 최종 `planning` 보고와 사용자 반응까지 도달했고 정상 문서화 단계로 닫을 수 있으면 `normal-cycle-close` 로 처리한다.
+2. `normal-cycle-close` 에서는 `user-docs` 와 `ai-docs` 가 각각 자기 역할에 맞게 문서화 업데이트를 수행하고, 두 문서 갱신까지 끝나야 1회 개발 사이클 완료로 본다.
 3. 그 시점이 정상적인 1회 작업 사이클 완료 전이고, 아직 하던 작업 도중이면 `interrupted-handoff-close` 로 처리한다.
 4. `interrupted-handoff-close` 에서는 `ai-docs` 와 `user-docs` 를 사용해 전체 상황을 대신 문서화하지 않는다.
 5. `interrupted-handoff-close` 에서는 그 시점에 활성화되어 있는 모든 역할군 에이전트가 직접 자기 작업을 문서화한다. 이 대상에는 최상위 `orchestra` 도 포함한다.
@@ -76,13 +76,13 @@ ender.md 읽어 세션 종료할꺼야
 
 아래 조건이면 정상 사이클 종료로 본다.
 
-- 1회 개발 사이클이 마지막 `planning` 보고와 사용자 반응까지 도달했다.
+- 최종 `planning` 보고와 사용자 반응까지 도달했고 정상 문서화 단계로 닫을 수 있다.
 - `user-docs` 와 `ai-docs` 가 정상적으로 각자의 문서 갱신을 수행할 수 있다.
 - 현재 작업이 대체로 정리되어 있고, 다음 세션은 문서화된 현재 상태에서 새 작업 또는 다음 사이클로 시작하면 된다.
 
 이 경우 문서화 책임은 기존 개발 사이클 규칙을 따른다.
 
-1. `user-docs` 는 `docs/human/user-docs/` 의 사용자용 문서를 갱신한다.
+1. `user-docs` 는 정상 작업 범위인 `README.md` 와 `docs/human/` 의 사용자용 문서를 갱신한다. 기본 작업 공간은 `docs/human/user-docs/` 이다.
 2. `ai-docs` 는 AI 에이전트용 개발 문서와 역할 문서를 갱신한다.
 3. 각 역할은 자기 정상 관리 문서만 정리한다.
 4. `codegen` 은 정상 종료에서는 문서를 작성하거나 갱신하지 않는다.
@@ -109,7 +109,7 @@ ender.md 읽어 세션 종료할꺼야
 6. `orchestra` 는 가능하면 아직 살아 있는 각 서브 에이전트에게 자기 역할의 `handoff/latest.md` 를 작성하고 종료하라고 지시한다.
 7. 이미 닫혔거나 응답하지 않는 서브 에이전트가 있으면 `orchestra` 는 그 사실만 자기 인계 문서에 남기고, 해당 역할의 작업을 대신 꾸며 쓰지 않는다.
 8. `codegen` 은 이 경우에만 예외적으로 `docs/agent/codegen/handoff/latest.md` 를 작성하거나 갱신할 수 있다. 다른 문서는 여전히 수정 금지다.
-9. `user-docs` 는 중간 중단 인계 종료에서는 `docs/human/user-docs/` 를 갱신하지 않고, 자기 인계만 `docs/agent/user-docs/handoff/latest.md` 에 남긴다.
+9. `user-docs` 는 중간 중단 인계 종료에서는 `README.md` 나 `docs/human/` 을 갱신하지 않고, 자기 인계만 `docs/agent/user-docs/handoff/latest.md` 에 남긴다.
 10. `ai-docs` 는 중간 중단 인계 종료에서는 전체 역할 문서를 대신 정리하지 않고, 자기 인계만 `docs/agent/ai-docs/handoff/latest.md` 에 남긴다.
 11. 이 종료 유형에서는 1회 개발 사이클이 완료되었다고 쓰지 않는다.
 
@@ -332,6 +332,8 @@ ender.md 읽어 세션 종료할꺼야
 
 관리 문서:
 
+- `README.md`
+- `docs/human/README.md`
 - `docs/human/user-docs/live-log.md`
 - `docs/human/user-docs/file-map.md`
 - `docs/human/user-docs/feature-map.md`
@@ -342,12 +344,13 @@ ender.md 읽어 세션 종료할꺼야
 
 1. `docs/agent/user-docs/README.md` 를 먼저 읽고 사용자 문서 역할 경계를 재확인한다.
 2. 이번 세션에서 실제로 확인한 코드와 문서 변경만 반영한다.
-3. `live-log.md` 에는 최근 변경 중 사용자에게 의미 있는 항목만 남긴다.
-4. `file-map.md` 에는 실제 파일 역할과 책임만 남긴다.
-5. `feature-map.md` 에는 실제 구현된 기능 흐름과 로직만 남긴다.
-6. 중복 설명, 오래된 설명, 코드와 어긋난 설명은 정리하거나 삭제한다.
-7. 없는 기능, 추정 동작, 확인되지 않은 미래 계획은 문서에서 제거한다.
-8. 사람이 빨리 읽을 수 있게 개요, 파일 역할, 기능 흐름, 용어 풀이 순으로 정리한다.
+3. 공개 개요나 주제 설명이 바뀌었으면 `README.md` 와 `docs/human/README.md` 를 현재 코드 상태와 맞춘다.
+4. `live-log.md` 에는 최근 변경 중 사용자에게 의미 있는 항목만 남긴다.
+5. `file-map.md` 에는 실제 파일 역할과 책임만 남긴다.
+6. `feature-map.md` 에는 실제 구현된 기능 흐름과 로직만 남긴다.
+7. 중복 설명, 오래된 설명, 코드와 어긋난 설명은 정리하거나 삭제한다.
+8. 없는 기능, 추정 동작, 확인되지 않은 미래 계획은 문서에서 제거한다.
+9. 사람이 빨리 읽을 수 있게 개요, 파일 역할, 기능 흐름, 용어 풀이 순으로 정리한다.
 9. 최종 응답에는 어떤 사용자 문서를 갱신했는지와 사용자 입장에서 중요한 변경만 말한다.
 
 반드시 지킬 사실성 규칙:

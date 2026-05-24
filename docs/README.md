@@ -28,5 +28,5 @@
 - 에이전트용 문서 시스템은 역할별로 서로 침범하지 않는다.
 - 최상위 `orchestra` 세션만 `starter.md` 를 부팅 문서로 읽는다.
 - 서브 에이전트는 `starter.md` 를 반복해서 읽지 않고 자기 역할의 `docs/agent/<role>/README.md` 를 바로 읽는다.
-- 사용자 문서 전담 AI 는 정상 작업에서 `docs/human/user-docs/` 만 문서 작업 영역으로 사용한다. 단, 중간 중단 인계 종료에서는 자기 인계만 `docs/agent/user-docs/handoff/latest.md` 에 남긴다.
+- 사용자 문서 전담 AI 는 정상 작업에서 `README.md` 와 `docs/human/` 을 문서 작업 영역으로 사용한다. 기본 작업 공간은 `docs/human/user-docs/` 이며, 프로젝트 주제 주입이나 공개 문서 갱신처럼 명시된 경우에는 `docs/human/` 일반 문서도 관리한다. 중간 중단 인계 종료에서는 자기 인계만 `docs/agent/user-docs/handoff/latest.md` 에 남긴다.
 - AI 에이전트용 개발 문서는 `ai-docs` 가 관리하고, 사용자용 문서는 `user-docs` 가 관리한다.

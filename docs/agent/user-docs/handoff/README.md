@@ -7,6 +7,10 @@
 
 - `docs/agent/user-docs/handoff/latest.md`
 
+모든 `latest.md` 는 루트 `ender.md` 의 표준 스키마를 따른다.
+필수 필드는 `role`, `handoff_type`, `last_updated`, `trigger`, `current_task`, `current_loop_step`, `completed`, `in_progress`, `next_steps`, `touched_files`, `unverified_changes`, `blocking_questions`, `context_report` 이다.
+아래 항목은 이 역할이 특히 채워야 할 역할별 내용이다.
+
 중간 중단 인계 종료에서 `user-docs` 는 `docs/human/user-docs/` 를 갱신하지 않는다.
 자기 작업 상태만 이 파일에 남긴다.
 

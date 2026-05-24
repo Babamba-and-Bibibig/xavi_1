@@ -8,6 +8,10 @@
 이제 프로젝트 주제를 정할꺼야, inject_subject_once.md 읽고 다음 내 주제에 맞게 기본 틀을 작성하고, 내용을 추가해줘.
 ```
 
+하지만 사용자가 반드시 이 파일명을 알아야 하는 것은 아니다.
+최상위 `orchestra` 가 `starter.md` 를 읽은 뒤, 아직 범용 health-check 부트스트랩 상태인 저장소에서 사용자가 새 프로젝트 주제나 제품 아이디어를 말하면, 그것은 곧 이 문서의 실행 트리거다.
+즉 사용자가 `inject_subject_once.md` 를 직접 언급하지 않아도 `orchestra` 는 이 문서를 찾아 읽고 적용해야 한다.
+
 이 문서는 기본적으로 최상위 `orchestra` 세션이 읽고 실행한다.
 `orchestra` 는 이 문서만으로 필요한 작업을 이해한 뒤, 실제 분석, 계획, 구현, 검수, 테스트, 사용자 문서 작업을 역할별 서브 에이전트에 나누어 맡겨야 한다.
 한 에이전트가 모든 역할을 직접 수행하는 방식으로 해석하면 안 된다.
@@ -101,8 +105,8 @@
 
 - 사람용 문서와 AI용 문서는 분리한다.
 - 내부 AI 문서 시스템은 역할별로 분리한다.
-- 사용자 문서 전담 AI 는 정상 작업에서 `docs/human/user-docs/` 만 관리한다. 단, 중간 중단 인계 종료에서는 자기 인계만 `docs/agent/user-docs/handoff/latest.md` 에 남긴다.
-- 사용자 문서 전담 AI 는 반드시 `docs/agent/user-docs/README.md` 를 먼저 읽고 역할 경계를 확정한 뒤, 정상 사용자 문서 작업일 때만 `docs/human/user-docs/` 로 이동한다.
+- 사용자 문서 전담 AI 는 정상 작업에서 `README.md` 와 `docs/human/` 을 관리한다. 기본 작업 공간은 `docs/human/user-docs/` 이며, 프로젝트 주제 주입이나 공개 문서 갱신처럼 명시된 경우에는 `docs/human/` 일반 문서도 관리한다. 중간 중단 인계 종료에서는 자기 인계만 `docs/agent/user-docs/handoff/latest.md` 에 남긴다.
+- 사용자 문서 전담 AI 는 반드시 `docs/agent/user-docs/README.md` 를 먼저 읽고 역할 경계를 확정한 뒤, 정상 사용자 문서 작업일 때 `README.md` 또는 `docs/human/` 의 해당 문서로 이동한다.
 - AI 문서 전담 AI 는 `docs/agent/` 와 루트 운영 문서만 관리한다.
 - 사용자용 문서와 AI 에이전트용 문서는 독자, 위치, 문체, 관리 역할을 완전히 분리한다.
 - `starter.md` 는 최상위 `orchestra` 세션의 부팅 규약 문서로 유지한다.
@@ -118,6 +122,20 @@
 4. 이후 구현은 `starter.md` 의 개발 업무 절대 고정 루프 순서로만 지시한다.
 5. 역할별 AI 문서 시스템의 주제 정보 갱신은 `ai-docs` 역할에 맡긴다.
 6. 사용자용 문서 시스템은 `user-docs` 역할에 맡기고, AI 에이전트용 문서 시스템은 `ai-docs` 역할에 맡긴다.
+
+## 3-1. 주제 주입은 부분 수정이 아니다
+
+이 문서를 실행한 작업은 단순히 `README.md` 한두 문장이나 예제 코드 이름만 바꾸는 작업이 아니다.
+반드시 저장소 전체가 "범용 부트스트랩" 에서 "사용자 주제의 초기 프로젝트" 로 읽히도록 바뀌어야 한다.
+
+`orchestra` 는 주제 주입 작업을 아래 범위로 이해해야 한다.
+
+- 루트 README 와 사람용 문서는 사용자 주제를 기준으로 다시 읽혀야 한다.
+- 내부 AI 역할 문서는 다음 개발 사이클에서 같은 주제를 이어받을 수 있어야 한다.
+- 코드에는 주제와 직접 연결되는 첫 domain/application/infrastructure/bootstrap 흐름이 보여야 한다.
+- 하네스에는 주제와 직접 연결되는 첫 fixture/double/scenario/assertion/test 흐름이 있어야 한다.
+- health-check 예제는 의미가 있으면 보조 상태 확인으로 남길 수 있지만, 프로젝트의 중심 설명이나 유일한 코드 흐름으로 남겨두면 안 된다.
+- 마지막 검수에서는 `xavi_1`, generic health-check, bootstrap template 설명이 사용자 주제 설명을 밀어내고 있지 않은지 확인해야 한다.
 
 ## 4. 사용자가 주제를 아직 충분히 주지 않았을 때
 
@@ -168,6 +186,7 @@
 ## 7. 반드시 수정하거나 추가해야 하는 산출물
 
 프로젝트 주제 주입 시 최소한 아래 산출물은 반드시 만들어야 한다.
+사용자나 공개 독자가 읽는 `README.md` 와 `docs/human/` 문서는 `user-docs` 역할이 맡고, AI 운영 규칙인 `starter.md`, `ender.md`, `inject_subject_once.md`, `docs/agent/` 는 `ai-docs` 역할이 맡는다.
 
 ### 루트
 
@@ -222,7 +241,7 @@
 - `docs/agent/ai-docs/README.md`
   - AI 에이전트용 문서 갱신과 인계 정보 관리 기준이 보존되어야 한다.
 - `docs/agent/user-docs/README.md`
-  - 사용자 문서 전담 역할의 진입 경로와 `docs/human/user-docs/` 전용 갱신 경계가 보존되어야 한다.
+  - 사용자 문서 전담 역할의 진입 경로와 `README.md`, `docs/human/` 전용 갱신 경계가 보존되어야 한다.
 - `docs/agent/ephemeral/`
   - 필요하면 주제 탐색용 초기 세션 템플릿이나 예시 세션을 추가한다.
 

@@ -21,7 +21,7 @@
 - 세션 종료 시에는 루트의 `ender.md` 를 현재 역할 기준 종료 규약으로 적용한다.
 - 그 다음 정상 작업에서는 이 폴더 내부 문서만 읽고 관리한다.
 - 코드 해석을 위해 소스 코드는 읽을 수 있다.
-- 정상 작업의 문서 작업은 `docs/human/user-docs/` 안에서만 수행한다. `ender.md` 가 `interrupted-handoff-close` 로 분류한 경우에는 사용자 문서를 갱신하지 않고 `docs/agent/user-docs/handoff/latest.md` 만 작성한다.
+- 정상 작업의 문서 작업은 기본적으로 `docs/human/user-docs/` 안에서 수행한다. 프로젝트 주제 주입이나 공개 문서 갱신처럼 명시된 경우에는 `README.md` 와 `docs/human/` 일반 문서도 갱신할 수 있다. `ender.md` 가 `interrupted-handoff-close` 로 분류한 경우에는 사용자 문서를 갱신하지 않고 `docs/agent/user-docs/handoff/latest.md` 만 작성한다.
 - `docs/agent/user-docs/README.md` 외의 `docs/agent/` 아래 문서는 읽거나 관리하지 않는다. 단, 중간 중단 인계 종료의 `docs/agent/user-docs/handoff/latest.md` 는 예외다.
 - AI 에이전트용 개발 문서 갱신은 `ai-docs` 역할의 책임이며, 이 역할이 대신하지 않는다.
 

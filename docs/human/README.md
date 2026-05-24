@@ -40,10 +40,16 @@ xavi_1/
 │       ├── test/
 │       ├── planning/
 │       ├── ai-docs/
+│       ├── user-docs/
 │       └── ephemeral/
 ├── Cargo.toml
+├── Cargo.lock
 ├── README.md
 ├── .gitignore
+├── ender.md
+├── inject_subject_once.md
+├── LICENSE-MIT
+├── LICENSE-APACHE
 ├── rustfmt.toml
 └── starter.md
 ```
@@ -295,7 +301,7 @@ xavi_1/
 - `ephemeral/`
 
 핵심 원칙은 역할 간 문서 침범 금지다.
-오케스트라 AI 는 오케스트라 문서만, 분석 AI 는 테스트 문제점의 근본 원인 분석 문서만, 코드 생성 AI 는 코드 생성 문서만, 리뷰 AI 는 검수 문서만, 테스트 AI 는 테스트 실행 문서만, 기획 AI 는 계획과 최종 보고 문서만, AI 문서 AI 는 에이전트 전용 개발 문서만, 임시 AI 는 자신에게 배정된 임시 세션 문서만 읽고 관리해야 한다. 사용자 문서 AI 는 `docs/agent/user-docs/README.md` 를 먼저 읽고 역할 경계를 확정한 뒤, 정상 작업에서는 `docs/human/user-docs/` 만 읽고 관리해야 한다. 단, 중간 중단 인계 종료에서는 각 활성 역할이 자기 `docs/agent/<role>/handoff/latest.md` 만 직접 남긴다.
+오케스트라 AI 는 오케스트라 문서만, 분석 AI 는 테스트 문제점의 근본 원인 분석 문서만, 코드 생성 AI 는 코드 생성 문서만, 리뷰 AI 는 검수 문서만, 테스트 AI 는 테스트 실행 문서만, 기획 AI 는 계획과 최종 보고 문서만, AI 문서 AI 는 에이전트 전용 개발 문서만, 임시 AI 는 자신에게 배정된 임시 세션 문서만 읽고 관리해야 한다. 사용자 문서 AI 는 `docs/agent/user-docs/README.md` 를 먼저 읽고 역할 경계를 확정한 뒤, 정상 작업에서는 `README.md` 와 `docs/human/` 의 사용자용 문서를 관리해야 한다. 기본 작업 공간은 `docs/human/user-docs/` 이다. 단, 중간 중단 인계 종료에서는 각 활성 역할이 자기 `docs/agent/<role>/handoff/latest.md` 만 직접 남긴다.
 개발 업무에서는 오케스트라가 `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs` 기본 7개 서브 에이전트를 절대 고정 루프로 운용한다.
 1회 사이클의 마지막에는 `user-docs` 가 사용자용 문서를, `ai-docs` 가 AI 에이전트용 문서를 각각 갱신해야 한다.
 에이전트는 긴 배경 설명보다, 충돌 없이 작업하기 위한 명시 규칙을 더 효율적으로 활용하기 때문이다.
@@ -310,6 +316,11 @@ xavi_1/
 이 파일은 단순 설정 파일이 아니라, 구조적 의도를 담는 선언문에 가깝다.
 특히 멤버 목록과 lint 정책은 프로젝트가 어떤 품질 기준과 구조 경계를 중요하게 여기는지를 드러낸다.
 
+### `Cargo.lock`
+
+루트 `Cargo.lock` 은 Cargo 의 의존성 해석 결과를 고정한다.
+이 저장소는 실행 바이너리인 `apps/xavi-bootstrap` 을 포함하므로 공개 공유 시 lockfile 을 함께 커밋해 재현성을 높이는 것이 좋다.
+
 ### `README.md`
 
 루트 `README.md` 는 프로젝트의 가장 짧은 입구 문서다.
@@ -323,6 +334,16 @@ xavi_1/
 서브 에이전트가 매번 다시 읽는 문서가 아니라, 최상위 세션이 전체 운영 방식과 역할 라우팅을 잡는 부팅 문서다.
 즉 저장소 전체 관점에서 보면 `README.md` 는 사람용 짧은 입구이고, `starter.md` 는 최상위 AI 오케스트라용 짧은 입구라고 이해하면 된다.
 
+### `inject_subject_once.md`
+
+루트 `inject_subject_once.md` 는 이 generic 부트스트랩에 실제 프로젝트 주제를 처음 1회 주입할 때 사용하는 규약이다.
+프로젝트 주제, 초기 도메인, 사용자 문서, 역할별 내부 문서를 함께 맞추는 절차를 정의한다.
+
+### `ender.md`
+
+루트 `ender.md` 는 세션 종료와 재시작 인계 규약이다.
+작업이 정상 사이클로 끝났는지, 중간에 끊겨 각 역할의 `handoff/latest.md` 가 필요한지를 먼저 나누게 만든다.
+
 ### `.gitignore`
 
 버전 관리에서 제외할 파일을 정의한다.
@@ -333,30 +354,32 @@ xavi_1/
 Rust 코드 포맷 규칙을 프로젝트 차원에서 통일하기 위한 파일이다.
 팀 작업과 자동 생성 코드 품질을 일정하게 유지하는 데 중요하다.
 
+### `LICENSE-MIT` / `LICENSE-APACHE`
+
+워크스페이스 `Cargo.toml` 의 `MIT OR Apache-2.0` 라이선스 선언에 대응하는 공개 라이선스 본문이다.
+GitHub 공유 시 라이선스 선언과 실제 라이선스 파일이 함께 있어야 사용자가 재사용 조건을 명확히 이해할 수 있다.
+
 ## 의존 방향 정리
 
-현재 구조의 의도된 의존 방향은 아래와 같다.
+현재 구조의 의도된 의존 정책은 안쪽 레이어가 바깥 레이어를 참조하지 않는 것이다.
+`apps/xavi-bootstrap` 과 `crates/xavi-harness` 는 바깥쪽 composition root 이므로 여러 안쪽 crate 를 직접 조립할 수 있다.
+따라서 실제 Cargo graph 는 완전한 선형이 아니라 아래 방향성을 지키는 fan-in 구조다.
 
 ```text
 apps/xavi-bootstrap
-        ↓
-crates/xavi-infrastructure
-        ↓
-crates/xavi-application
-        ↓
-crates/xavi-domain
+        ├─> crates/xavi-infrastructure
+        └─> crates/xavi-application ──> crates/xavi-domain
+
+crates/xavi-infrastructure ──> crates/xavi-application ──> crates/xavi-domain
 ```
 
 그리고 `crates/xavi-harness` 는 검증 목적상 바깥쪽에서 여러 레이어를 조립해 사용할 수 있다.
 
 ```text
 crates/xavi-harness
-        ↓
-crates/xavi-infrastructure
-        ↓
-crates/xavi-application
-        ↓
-crates/xavi-domain
+        ├─> crates/xavi-infrastructure
+        ├─> crates/xavi-application
+        └─> crates/xavi-domain
 ```
 
 핵심은 안쪽 레이어일수록 더 안정적이고, 바깥 레이어일수록 더 자주 바뀐다는 점이다.

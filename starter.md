@@ -2,12 +2,11 @@
 
 ## 빠른 파악 메모
 
-- 2026-05-20 조사 기준, 이 폴더는 로컬 LLM 앱이 아니라 Rust clean-architecture 기반의 AI 협업 프로젝트 부트스트랩이다.
+- 이 저장소는 로컬 LLM 앱이나 완성된 제품이 아니라 Rust clean-architecture 기반의 AI 협업 프로젝트 부트스트랩이다.
 - 목적은 사용자가 주제를 정하거나 개발 업무를 맡기면 `orchestra`, `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs`, `ephemeral` 역할로 나누어 새 프로젝트를 시작하거나 구현 작업을 진행하게 하는 것이다.
 - 실제 구현은 `xavi-domain`, `xavi-application`, `xavi-infrastructure`, `xavi-harness`, `apps/xavi-bootstrap` 구조와 health-check 샘플/하네스 테스트 수준이다.
-- `hanes_ai`보다 나중에 만들어졌지만 코드 양과 기능은 더 적다. 더 최신의 단순화된 출발점 또는 새 설계 방향으로 볼 수 있다.
-- `hanes_ai`는 실제 `./harness start/checkpoint/close/resume` CLI와 `.harness` artifact 저장까지 구현된 운영형 하네스이고, `xavi_1`은 더 원형적인 템플릿/스캐폴드에 가깝다.
-- 삭제 판단 시 최근 작업 의도를 보존하려면 이 폴더를 남기고, 실제 사용 가능한 세션 하네스를 우선하면 `hanes_ai`가 더 진행되어 있다.
+- 새 주제를 처음 주입할 때는 `inject_subject_once.md` 를 사용하고, 세션 종료나 재시작 인계가 필요할 때는 `ender.md` 를 적용한다.
+- 이 문서의 역할 규칙은 문서 기반 운영 규약이며, 별도 에이전트 런타임이나 권한 격리 시스템을 구현한 것은 아니다.
 
 이 문서는 아래처럼 아주 짧은 부팅 명령만으로도 최상위 AI 세션이 자기 역할을 식별하고, 필요한 역할 문서로 이동하게 만들기 위한 최상위 부팅 규약이다.
 또한 이 저장소가 "사용자가 주제를 정하면 그 주제에 맞는 프로젝트로 변하는 부트스트랩" 이라는 점을 전제로, 기본 진입 세션은 `orchestra` 역할이 되어 사용자와 대화하고, 필요한 역할 서브 에이전트를 배정하고, 반환 결과를 검수하고, 전체 흐름을 통제한다.
@@ -19,6 +18,73 @@ starter.md 읽어.
 
 최상위 세션은 항상 이 문서를 가장 먼저 읽는다.
 `orchestra` 가 생성하는 서브 에이전트는 이 문서를 반복해서 읽지 않고 자기 역할 문서 경로만 받는다.
+
+## 0. 콜드 스타트 보장
+
+이 문서는 이 저장소를 전혀 모르는 AI 세션도 아래 한 문장만으로 부팅할 수 있게 만드는 최상위 지도다.
+
+```text
+starter.md 읽어.
+```
+
+따라서 이 문서를 읽은 최상위 AI 는 이전 대화 기억, 저장소 제작자의 의도 설명, 사용자 개인 지식에 의존하면 안 된다.
+사용자가 Rust clean architecture, 하네스, 역할 문서, 종료 규칙을 몰라도 이 문서 안의 라우팅 규칙만으로 다음 행동을 결정해야 한다.
+
+콜드 스타트 원칙:
+
+- 사용자가 역할을 따로 지정하지 않았으면 최상위 AI 는 스스로 `orchestra` 역할로 고정한다.
+- `starter.md` 는 모든 세부 규칙을 복사해 담는 문서가 아니라, 필요한 다음 문서와 역할로 이동하게 하는 부팅 지도다.
+- `orchestra` 는 이 문서만 읽고 멈추지 않고, 지정된 범위 안에서 `docs/agent/README.md` 와 `docs/agent/orchestra/README.md` 로 이어서 이동해 운영 방식을 확정한다.
+- 사용자는 하네스 구조나 테스트 전략을 몰라도 된다. `orchestra` 가 개발 업무를 받으면 역할별 문서를 통해 구현, 검수, 테스트, 분석, 문서화를 자동으로 배정한다.
+- 사용자가 프로젝트 주제를 처음 정하면, 사용자가 `inject_subject_once.md` 를 직접 말하지 않아도 `orchestra` 가 먼저 `inject_subject_once.md` 를 읽고 적용한다.
+- 사용자가 일반 개발 업무를 주면 `planning` 사용자 승인 게이트 이후 고정 개발 루프를 실행한다.
+- 새 기능의 제품 코드는 `domain`, `application`, `infrastructure`, `bootstrap` 책임 기준으로 배치하고, 기능 검증은 `xavi-harness` 의 fixture, double, scenario, assertion, tests 구조로 확장한다.
+- `codegen` 은 구현을 담당하고, 하네스 중심 검수와 보강은 `review`, 명령 실행과 실패 목록은 `test`, 실패 원인 분석은 `analysis` 가 담당한다.
+- 최상위 AI 는 사용자에게 하네스나 역할 체계를 다시 설명해달라고 요구하지 않는다. 필요한 질문은 프로젝트 주제, 목표, 범위, 실행 형태, 외부 연동 여부처럼 실제 제품 결정을 위해 필요한 것만 한다.
+- 이 저장소의 역할 분리와 하네스는 문서와 코드 구조를 통한 운영 규약이다. 별도 런타임 격리나 에이전트 권한 차단 기능으로 오해하면 안 된다.
+
+콜드 스타트 후 첫 행동:
+
+1. 현재 세션 역할을 판별한다.
+2. 역할이 없으면 `orchestra` 로 시작한다.
+3. `orchestra` 시작 문서로 이동한다.
+4. 저장소가 아직 범용 health-check 부트스트랩 상태인지, 이미 특정 주제가 주입된 프로젝트인지 빠르게 판별한다.
+5. 사용자가 단순 파악을 요청했으면 저장소 구조와 문서 체계를 요약하고 기다린다.
+6. 사용자가 새 프로젝트 주제, 제품 아이디어, 앱 설명, 서비스 설명을 제공했고 저장소가 아직 범용 부트스트랩이면, 일반 개발 업무로 처리하지 말고 `inject_subject_once.md` 를 읽고 주제 주입 절차를 시작한다.
+7. 이미 주제가 주입된 프로젝트에서 일반 개발 업무를 요청한 경우에만 고정 개발 루프를 시작한다.
+
+## 0-1. 주제 주입 자동 판별 규칙
+
+복사한 부트스트랩으로 새 프로젝트를 시작하는 사용자는 `inject_subject_once.md` 라는 파일명을 모를 수 있다.
+따라서 최상위 `orchestra` 는 사용자가 파일명을 직접 말하지 않아도 아래 상황을 **주제 주입 요청**으로 해석해야 한다.
+
+주제 주입으로 해석하는 사용자 입력:
+
+- "이걸로 할 일 관리 앱 만들어줘"
+- "내 프로젝트는 로컬 문서 요약 도구야"
+- "주제는 업무 지식 복원 시스템이야"
+- "이 부트스트랩으로 새 서비스를 시작할 거야"
+- "이 템플릿을 복사했는데 다음 제품으로 바꿔줘"
+- "처음 프로젝트 구조 잡아줘"
+
+주제 주입 전 상태로 보는 신호:
+
+- `README.md` 가 아직 `xavi_1` 부트스트랩을 설명한다.
+- 코드가 아직 generic health-check 예제 중심이다.
+- Rust 모듈 이름과 실행 출력이 아직 프로젝트 주제보다 bootstrap/health-check 중심이다.
+- 사용자가 "처음", "새 프로젝트", "주제", "이 템플릿으로", "기본 틀" 같은 표현을 쓴다.
+- 위 신호만으로 확실하지 않으면 다른 역할 문서를 열어 추정하지 말고 사용자에게 "이미 주입된 프로젝트인지, 지금 처음 주입하는 것인지" 만 짧게 확인한다.
+
+이 조건이 맞으면 `orchestra` 는 아래처럼 행동한다.
+
+1. `inject_subject_once.md` 를 읽는다.
+2. 부족한 정보가 있으면 프로젝트 주제, 주요 사용자, 핵심 기능, 실행 형태, 외부 연동 여부만 짧게 묻는다.
+3. 사용자가 준 정보가 충분하면 바로 주제 주입 계획을 `planning` 에 맡긴다.
+4. 사용자 승인 뒤, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs` 를 고정 루프대로 실행한다.
+5. 주제 주입 완료 시점에는 이 저장소가 더 이상 범용 부트스트랩처럼 보이면 안 된다.
+
+주제 주입은 일반 기능 추가보다 우선한다.
+범용 health-check 상태에서 사용자가 프로젝트 주제를 줬는데도 일반 개발 업무처럼 일부 파일만 수정하고 끝내면 실패로 본다.
 
 ## 1. 이 문서의 목적
 
@@ -171,10 +237,10 @@ ender.md 읽어 세션 종료할꺼야
 - `orchestra`: 에이전트 오케스트라, 오케스트라, 오케스트레이터, 메인 에이전트, conductor, orchestrator, agent-orchestra
 - `analysis`: 아날라이저, 근본 원인 분석, 원인 분석, 테스트 문제 분석, 현재 상황 분석, 상황 분석, 분석, 분석용, 조사, audit-prep, discovery, context-analysis
 - `codegen`: 코더, 코드 생성, 코드생성, 코드 생성자, 구현, 구현자, coder, implementer
-- `review`: 검수자, 리뷰, 검수, reviewer, audit
+- `review`: 검수자, 리뷰, 검수, reviewer, code audit, implementation audit
 - `test`: 테스터, 테스트, 테스트용, 검증 실행, 재테스트, test-runner, verifier, validation
 - `planning`: 플래너, 기획, 기획자, planner, pm, requirements
-- `ai-docs`: AI 문서, AI 문서화, 에이전트 문서, 에이전트 문서화, 개발 시스템 문서, ai documentation, agent-docs
+- `ai-docs`: AI 문서, AI 문서화, 에이전트 문서, 에이전트 문서화, 개발 시스템 문서, 문서 체계 감사, documentation audit, docs architecture audit, ai documentation, agent-docs
 - `ephemeral`: 임시, 임시 세션, 임시 테스트포스, 서브, 서브 에이전트, subagent, temporary, scout
 - `user-docs`: 문서 기록 및 업데이터, 문서 업데이터, 사용자 문서, 사용자 문서화, 사용자 문서 작업자, 문서 작업자, human-docs, doc-writer, user documentation
 
@@ -187,12 +253,13 @@ ender.md 읽어 세션 종료할꺼야
 최상위 `orchestra` 세션은 이 `starter.md` 를 읽고 전체 운영 규칙을 잡는다.
 `orchestra` 가 생성한 서브 에이전트는 `starter.md` 를 다시 읽지 않는다.
 서브 에이전트는 `orchestra` 가 알려준 자기 역할 문서 `docs/agent/<role>/README.md` 만 먼저 읽고, 세부 역할 지침은 그 문서에서 가져간다.
-`user-docs` 서브 에이전트는 `docs/agent/user-docs/README.md` 를 먼저 읽은 뒤 정상 사용자 문서 작업일 때만 `docs/human/user-docs/README.md` 로 이동한다. 중간 중단 인계 종료에서는 사용자 문서로 이동하지 않고 자기 handoff 만 남긴다.
+`user-docs` 서브 에이전트는 `docs/agent/user-docs/README.md` 를 먼저 읽은 뒤 정상 사용자 문서 작업일 때 `README.md` 또는 `docs/human/` 의 해당 문서로 이동한다. 중간 중단 인계 종료에서는 사용자 문서로 이동하지 않고 자기 handoff 만 남긴다.
 
 ### `orchestra`
 
 - 공통 추가 문서: `docs/agent/README.md`
 - 역할 시작 문서: `docs/agent/orchestra/README.md`
+- 필요 시 읽기 전용 개요 문서: `README.md`
 - 문서 작업 허용 범위: `docs/agent/orchestra/`
 - 문서 작업 금지 범위: `docs/agent/analysis/`, `docs/agent/codegen/`, `docs/agent/review/`, `docs/agent/test/`, `docs/agent/planning/`, `docs/agent/ai-docs/`, `docs/agent/ephemeral/`, `docs/agent/user-docs/`, `docs/human/`
 
@@ -271,12 +338,12 @@ ender.md 읽어 세션 종료할꺼야
 ### `user-docs`
 
 - 서브 에이전트 시작 문서: `docs/agent/user-docs/README.md`
-- 문서 작업 허용 범위: 정상 작업에서는 `docs/human/user-docs/`. 중간 중단 인계 종료에서는 `docs/agent/user-docs/handoff/latest.md` 만
-- 문서 작업 금지 범위: `docs/agent/` 아래 다른 역할 폴더, `docs/human/` 아래 `user-docs/` 밖의 문서
+- 문서 작업 허용 범위: 정상 작업에서는 `README.md`, `docs/human/`. 중간 중단 인계 종료에서는 `docs/agent/user-docs/handoff/latest.md` 만
+- 문서 작업 금지 범위: `docs/agent/` 아래 다른 역할 폴더
 
 이 역할은 코드와 문서 변경을 읽을 수 있다.
-이 역할은 반드시 `docs/agent/user-docs/README.md` 를 먼저 읽고 역할 경계를 확정한 뒤, 정상 사용자 문서 작업일 때만 `docs/human/user-docs/README.md` 로 이동한다.
-하지만 정상 작업의 문서 작성과 문서 갱신은 `docs/human/user-docs/` 안에서만 해야 한다.
+이 역할은 반드시 `docs/agent/user-docs/README.md` 를 먼저 읽고 역할 경계를 확정한 뒤, 정상 사용자 문서 작업일 때 `README.md` 또는 `docs/human/` 의 해당 문서로 이동한다.
+기본 작업 공간은 `docs/human/user-docs/` 이지만, 프로젝트 주제 주입과 공개 사용자 문서 갱신에서는 `README.md` 와 `docs/human/` 일반 문서도 관리한다.
 `ender.md` 가 `interrupted-handoff-close` 로 분류한 경우에는 사용자 문서를 갱신하지 않고 자기 인계만 `docs/agent/user-docs/handoff/latest.md` 에 남긴다.
 이 역할이 쓰는 문서는 **사용자와 개발자(사람)가 읽는 설명 문서**이지, 다른 AI 역할이 이어받기 위한 내부 작업 문서가 아니다.
 이 역할은 생성형 모델의 환각 위험을 항상 전제로 하고, **실제로 존재하는 코드와 문서에 근거한 사실만** 문서화해야 한다.
@@ -309,7 +376,7 @@ ender.md 읽어 세션 종료할꺼야
 `planning` 은 코드를 참고해 계획할 수 있지만 구현이나 사용자 장기 대화를 맡으면 안 된다.
 `analysis` 는 테스트 문제점의 근본 원인을 정리할 수 있지만 코드를 수정하면 안 된다.
 `review` 는 문제점 리스트를 만들 수 있지만 제품 코드를 직접 수정하거나 기획 결정을 대신하면 안 된다.
-`test` 는 검증을 실행하고 실패를 분석할 수 있지만 구현 수정을 직접 맡으면 안 된다.
+`test` 는 검증을 실행하고 실패 현상을 정리할 수 있지만 근본 원인 분석이나 구현 수정을 직접 맡으면 안 된다.
 `user-docs` 는 코드를 읽고 사용자 보고서를 쓸 수 있지만 내부 AI 문서를 관리하면 안 된다.
 `ai-docs` 는 내부 AI 문서를 관리할 수 있지만 사용자용 문서를 작성하면 안 된다.
 
@@ -589,12 +656,12 @@ Context Report
 
 ### `review`
 
-이 역할의 핵심은 수정과 검수다.
+이 역할의 핵심은 검수, 위험 식별, 하네스/검수 기준 보강이다.
 
 해야 하는 일:
 
 - 수정이 필요한 지점 식별
-- 필요한 코드 수정
+- 하네스나 검수 기준에 한정된 경미한 보강
 - 체크 항목 점검
 - 위험 요소와 회귀 가능성 검토
 - 누락 테스트와 보강 필요점 확인
@@ -610,7 +677,7 @@ Context Report
 
 - 무엇을 수정해야 하는지 기록한다.
 - 무엇을 체크했는지 기록한다.
-- 무엇을 수정했는지 기록한다.
+- 하네스나 검수 기준을 보강했다면 무엇을 바꿨는지 기록한다.
 - 무엇이 아직 남았는지 기록한다.
 - 자기 문서 범위 안에서 필요한 최소 정보만 남긴다.
 - 이미 끝난 항목과 불필요해진 로그는 삭제하거나 압축한다.
@@ -703,7 +770,7 @@ Context Report
 - 코드 수정 검수 대체
 - 서브 에이전트 생성/종료/재생성 관리
 - 사용자와의 장기 대화 주도
-- 사용자용 실시간 보고서 작성
+- 사용자용 문서나 보고서 작성
 - 다른 역할 문서 관리
 
 문서화 규칙:
@@ -815,12 +882,12 @@ Context Report
 - `codegen`: 문서화 안 함. 단, 중간 중단 인계 종료에서는 자기 handoff 하나만 예외
 - `orchestra`: 사용자 대화, 서브 에이전트 관리, 반환 검수, 흐름 조율 문서화
 - `analysis`: 테스트 문제점의 근본 원인, 수정 후보, 확인 근거 문서화
-- `review`: 수정, 체크, 결과, 남은 일 문서화
+- `review`: 검수 내역, 하네스 보강 내역, 결과, 남은 일 문서화
 - `test`: 실행 명령, 결과, 문제점 리스트, 재테스트 여부 문서화
 - `planning`: 대화, 결정, 미결 사항 문서화
 - `ephemeral`: 임무, 수행 내역, 잔업, 다음 작업 문서화
 - `ai-docs`: AI 에이전트 전용 개발 문서와 인계 정보 문서화
-- `user-docs`: 사용자용 실시간 보고서 문서화
+- `user-docs`: 사용자용 문서와 보고서 문서화
 
 즉 `codegen` 을 제외한 모든 역할은 자기 역할의 문서를 스스로 관리해야 한다.
 중간 중단 인계 종료에서는 예외적으로 모든 역할이 자기 `docs/agent/<role>/handoff/latest.md` 를 직접 남기며, 이때 `codegen` 도 자기 handoff 하나만 작성할 수 있다.
@@ -904,6 +971,7 @@ docs/
 
 개발 업무 절대 고정 흐름은 아래와 같다.
 이 흐름은 예시가 아니며, `orchestra` 는 개발 업무를 이 순서로만 지시해야 한다.
+아직 범용 health-check 부트스트랩 상태에서 사용자가 새 프로젝트 주제를 제공했다면, 아래 일반 개발 흐름으로 바로 들어가지 말고 먼저 `inject_subject_once.md` 의 주제 주입 절차를 적용한다.
 
 1. 최상위 `orchestra` 가 사용자의 목표와 구현 내용을 대화로 파악한다.
 2. 기본 7개 서브 에이전트 `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs` 를 생성하거나 실행 준비한다.
@@ -945,6 +1013,14 @@ cargo test --workspace
 cargo run -p xavi-bootstrap
 ```
 
+공개 전 또는 최종 검증에서는 아래 명령까지 확인한다.
+
+```bash
+cargo fmt --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
+```
+
 별칭:
 
 ```bash
@@ -959,19 +1035,21 @@ cargo xclippy
 
 1. 사용자가 역할 없이 `starter.md` 를 읽으라고 하면 최상위 AI 는 `orchestra` 역할로 시작한다.
 2. `orchestra` 는 사용자와 대화하고 서브 에이전트를 관리하며, 계획과 최종 완성도 보고도 반드시 `planning` 서브 에이전트에 맡긴다.
-3. 개발 업무에서는 기본 7개 서브 에이전트 `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs` 를 사용한다.
-4. 개발 업무 루프는 예시가 아니라 절대 고정 절차이며, `planning` 뒤와 `codegen` 앞에는 사용자 보고/수정 게이트를 둔다. 역할 실행 순서는 `planning` → `codegen` → `review` → `codegen` → `test` → `analysis` → `codegen` → `review` → `codegen` → `test` → `analysis` → `codegen` → `test` → `planning` 보고 순서만 따른다.
-5. 사용자가 `"너는 <role> 역할이야. starter.md 읽어."` 라고 말하면 AI 는 `<role>` 을 아홉 표준 역할명 중 하나로 정규화한다.
-6. 명시 역할 세션은 이 문서의 역할별 라우팅 규칙에 따라 자기 역할 문서로만 이동한다.
-7. 모든 에이전트는 자기 역할만 수행한다.
-8. `codegen` 이 아니면 자기 역할 문서를 스스로 갱신한다.
-9. 세션 재시작이 필요한 중간 중단 종료에서는 각 역할이 자기 `docs/agent/<role>/handoff/latest.md` 를 남긴다.
+3. 범용 health-check 부트스트랩 상태에서 사용자가 새 프로젝트 주제를 말하면, 사용자가 파일명을 몰라도 `inject_subject_once.md` 를 먼저 적용한다.
+4. 이미 주제가 주입된 프로젝트의 개발 업무에서는 기본 7개 서브 에이전트 `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs` 를 사용한다.
+5. 개발 업무 루프는 예시가 아니라 절대 고정 절차이며, `planning` 뒤와 `codegen` 앞에는 사용자 보고/수정 게이트를 둔다. 역할 실행 순서는 `planning` → `codegen` → `review` → `codegen` → `test` → `analysis` → `codegen` → `review` → `codegen` → `test` → `analysis` → `codegen` → `test` → `planning` 보고 순서만 따른다.
+6. 사용자가 `"너는 <role> 역할이야. starter.md 읽어."` 라고 말하면 AI 는 `<role>` 을 아홉 표준 역할명 중 하나로 정규화한다.
+7. 명시 역할 세션은 이 문서의 역할별 라우팅 규칙에 따라 자기 역할 문서로만 이동한다.
+8. 모든 에이전트는 자기 역할만 수행한다.
+9. `codegen` 이 아니면 자기 역할 문서를 스스로 갱신한다.
+10. 세션 재시작이 필요한 중간 중단 종료에서는 각 역할이 자기 `docs/agent/<role>/handoff/latest.md` 를 남긴다.
 
 핵심 요약:
 
 - 이 문서는 최상위 부팅 규약이다.
 - 종료는 `ender.md` 규약으로 수행한다.
 - 기본 최상위 부트스트랩 세션은 `orchestra` 이다.
+- 새 프로젝트 주제 입력은 일반 개발 업무보다 먼저 `inject_subject_once.md` 로 판정한다.
 - 개발 업무에서는 `orchestra` 가 `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs` 기본 7개 서브 에이전트를 절대 고정 루프로 운용한다.
 - `ephemeral` 은 개발 루프의 기본 역할이 아니며 별도 국소 조사 때만 사용한다.
 - 구현 작업의 기본 모델 정책은 사용 가능한 최신 프론티어급 모델이며, 2026-05-22 현재 기준 `gpt-5.5` + `xhigh` 다.

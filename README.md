@@ -113,7 +113,7 @@ xavi-bootstrap initialized: status=Healthy, message=bootstrap completed
 처음 시작할 때는 AI 에이전트에게 이렇게 요청합니다.
 
 ```text
-starter.md 읽고 현재 문서 체계 숙지하고, 프로젝트 구조 대충 파악해봐.
+starter.md 읽고 현재 문서 체계 숙지하고, 프로젝트 구조를 간단히 파악해줘.
 ```
 
 프로젝트 주제를 처음 넣을 때는 이렇게 요청합니다.

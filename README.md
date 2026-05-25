@@ -94,11 +94,14 @@ xavi-bootstrap initialized: status=Healthy, message=bootstrap completed
 이 저장소는 사람이 직접 코드를 읽고 수정할 수도 있지만, 주된 사용 방식은 AI 에이전트에게 문서 규약을 읽히고 역할에 따라 진행하게 하는 것입니다.
 최상위 세션만 `starter.md` 를 읽고, `orchestra` 가 만드는 서브 에이전트는 각자의 `docs/agent/<role>/README.md` 만 먼저 읽습니다.
 상세한 고정 루프와 예외 규칙은 `starter.md` 를 권위 문서로 봅니다.
+`AGENTS.md` 를 자동으로 읽는 코딩 에이전트 환경에서는 루트 `AGENTS.md` 가 짧은 사전 부팅 계약 역할을 하며, 사용자가 매번 "서브 에이전트를 생성해라" 라고 말하지 않아도 기본 `orchestra` 모드로 시작해야 합니다.
+단, 실제 sub-agent 생성은 런타임이 `spawn_agent` 같은 도구를 제공하고 상위 정책이 사용을 허용할 때만 가능합니다. 그런 도구가 없거나 정책상 자동 생성이 금지되면 에이전트는 그 한계를 말하고 제한된 fallback 으로 진행해야 합니다.
+한 세션에서 `starter.md` 를 한 번 읽었다면, 이후 프로젝트 개발 프롬프트들은 별도 설명이 없어도 같은 `orchestra` 계약을 계속 상속해야 합니다.
 
 처음 보는 사용자는 아래 순서만 따르면 됩니다.
 
 1. 이 저장소를 새 프로젝트 폴더로 복사합니다.
-2. Codex 같은 코딩 에이전트에게 `starter.md` 를 읽게 합니다.
+2. Codex 같은 코딩 에이전트가 `AGENTS.md` 를 자동으로 읽는지 확인하고, 아니면 `starter.md` 를 읽게 합니다.
 3. 만들고 싶은 프로젝트 주제를 자연어로 설명합니다.
 4. 에이전트가 내는 초기 계획을 읽고 승인하거나 수정합니다.
 5. 구현은 에이전트가 역할별 루프에 따라 진행하게 둡니다.
@@ -347,11 +350,14 @@ xavi-bootstrap initialized: status=Healthy, message=bootstrap completed
 You can read and edit this repository manually, but the intended workflow is to ask an AI agent to follow the operating documents and work by role.
 Only the top-level session reads `starter.md`; sub-agents created by `orchestra` start from their own `docs/agent/<role>/README.md`.
 Treat `starter.md` as the authoritative document for the full fixed loop and exceptions.
+In coding-agent environments that automatically load `AGENTS.md`, the root `AGENTS.md` acts as a short pre-boot contract, so the user should not need to repeat "create sub-agents" on every request.
+Real sub-agent creation still depends on the runtime exposing a tool such as `spawn_agent` and allowing it under higher-priority policy. If no real sub-agent tool is available or automatic spawning is forbidden, the agent must say so and only use a limited single-context fallback.
+Once the top-level session has read `starter.md` once, later project-development prompts in the same session should continue to inherit the same `orchestra` contract.
 
 If you are new to this repository, use this simple flow.
 
 1. Copy this repository into a new project folder.
-2. Ask a coding agent such as Codex to read `starter.md`.
+2. Check whether a coding agent such as Codex automatically reads `AGENTS.md`; if not, ask it to read `starter.md`.
 3. Describe the project you want to build in plain language.
 4. Review the agent's initial plan, then approve or revise it.
 5. Let the agent follow the role-based loop for implementation.

@@ -1,6 +1,7 @@
 # Agent Documentation Systems
 
 이 디렉터리는 내부 AI 아홉 역할을 위한 문서 시스템 루트다.
+루트 `AGENTS.md` 는 자동 로드 가능한 환경에서 `starter.md` 로 들어오기 전의 짧은 부팅 계약 역할을 한다.
 최상위 `orchestra` 세션은 `starter.md` 를 읽은 뒤 이 파일을 읽고 전체 역할 경로를 확인한다.
 `orchestra` 가 생성한 서브 에이전트는 `starter.md` 를 다시 읽지 않고, 배정된 자기 역할 폴더의 `README.md` 를 바로 읽는다.
 세션을 마무리할 때는 루트의 `ender.md` 를 현재 역할 기준 종료 규약으로 적용해야 한다.
@@ -21,6 +22,7 @@
 ## 문서/컨텍스트 규칙
 
 - 최상위 `orchestra` 는 `starter.md` → `docs/agent/README.md` → `docs/agent/orchestra/README.md` 순서로 읽고 자기 역할을 확정한다.
+- 자동 로드 환경에서 `AGENTS.md` 를 먼저 읽었더라도, 최상위 `orchestra` 는 반드시 위 순서로 상세 규칙을 이어서 확인한다.
 - 서브 에이전트는 `starter.md` 와 이 공통 인덱스를 반복해서 읽지 않고, `docs/agent/<role>/README.md` 를 바로 읽고 자기 역할을 확정한다.
 - 각 서브 에이전트는 자기 역할 시작 폴더를 먼저 읽고 숙지한 뒤에만 실제 작업을 시작한다.
 - `orchestra` 는 서브 에이전트 생성 때 역할 설명 전문을 반복하지 않고, 역할명과 먼저 읽을 역할 문서 경로만 짧게 전달한다.
@@ -38,6 +40,9 @@
 - 기본 최상위 세션은 `orchestra` 이며, 계획 작업과 최종 완성도 보고도 반드시 `planning` 서브 에이전트로 실행한다.
 - 범용 health-check 부트스트랩 상태에서 사용자가 새 프로젝트 주제를 말하면, `orchestra` 는 일반 개발 업무보다 먼저 `inject_subject_once.md` 를 적용한다.
 - 사용자가 개발 업무를 주면 `orchestra` 는 기본 7개 서브 에이전트 `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs` 를 생성하거나 실행 준비한다.
+- 실제 sub-agent 생성 도구가 제공되면 사용자가 매번 다시 지시하지 않아도 `orchestra` 가 직접 서브 에이전트를 생성한다.
+- 상위 런타임 또는 도구 정책이 명시적 사용자 승인 없이는 sub-agent 생성을 금지하면, `orchestra` 는 그 한계를 사용자에게 보고한다.
+- 실제 sub-agent 생성 도구가 없으면 `orchestra` 는 그 한계를 사용자에게 알리고, 같은 컨텍스트 안에서 역할을 흉내 내는 fallback 을 실제 sub-agent 사용으로 표현하지 않는다.
 - 개발 업무 루프는 예시가 아니라 절대 고정 절차다. `planning` 뒤와 `codegen` 앞에는 사용자 보고/수정 게이트를 둔다. 역할 실행 순서는 `planning` → `codegen` → `review` → `codegen` → `test` → `analysis` → `codegen` → `review` → `codegen` → `test` → `analysis` → `codegen` → `test` → `planning` 보고다.
 - 첫 `test` 가 문제 없이 프로그램 실행, 목적 완수, 종료까지 확인하면 문제 분석/수정 루프를 건너뛰고 `orchestra` 에 성공 보고한 뒤 결과 취합 단계로 넘어간다.
 - 세 번째 `test` 이후에는 성공 여부와 관계없이 더 이상 코드 개발을 진행하지 않고, `orchestra` 가 결과를 취합해 `planning` 보고서로 사용자에게 전달한다.

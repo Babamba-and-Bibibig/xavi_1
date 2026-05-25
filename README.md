@@ -39,9 +39,9 @@
 
 - `orchestra`: 사용자와 대화하고 전체 흐름을 조율하는 최상위 역할
 - `planning`: 초기 계획과 최종 완성도 보고 담당
-- `codegen`: 코드 구현 담당
-- `review`: 코드 검수 담당
-- `test`: 검증 명령 실행과 문제점 리스트 작성 담당
+- `codegen`: clean architecture 를 유지하는 제품 코드 구현 담당
+- `review`: 코드 검수와 하네스 기반 테스트 코드 작성/보강 담당
+- `test`: 검증 명령 실행과 문제점 리스트 작성 담당. 테스트 코드는 직접 작성하지 않음
 - `analysis`: 테스트 실패의 근본 원인 분석 담당
 - `user-docs`: 사용자용 문서 작성 담당
 - `ai-docs`: AI 에이전트용 내부 문서 관리 담당
@@ -295,9 +295,9 @@ The documentation keeps these roles:
 
 - `orchestra`: top-level coordinator that talks to the user and manages the workflow
 - `planning`: initial plan and final completion report
-- `codegen`: implementation
-- `review`: code review
-- `test`: verification commands and issue lists
+- `codegen`: product implementation while preserving clean architecture
+- `review`: code review and harness-based test code creation or reinforcement
+- `test`: verification commands and issue lists, but not test code authoring
 - `analysis`: root-cause analysis for test failures
 - `user-docs`: human-facing documentation
 - `ai-docs`: internal AI-agent documentation

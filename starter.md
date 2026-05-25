@@ -85,7 +85,8 @@ starter.md 읽어.
 - 사용자가 프로젝트 주제를 처음 정하면, 사용자가 `inject_subject_once.md` 를 직접 말하지 않아도 `orchestra` 가 먼저 `inject_subject_once.md` 를 읽고 적용한다.
 - 사용자가 일반 개발 업무를 주면 `planning` 사용자 승인 게이트 이후 고정 개발 루프를 실행한다.
 - 새 기능의 제품 코드는 `domain`, `application`, `infrastructure`, `bootstrap` 책임 기준으로 배치하고, 기능 검증은 `xavi-harness` 의 fixture, double, scenario, assertion, tests 구조로 확장한다.
-- `codegen` 은 구현을 담당하고, 하네스 중심 검수와 보강은 `review`, 명령 실행과 실패 목록은 `test`, 실패 원인 분석은 `analysis` 가 담당한다.
+- `codegen` 은 clean architecture 를 유지하며 제품 구현을 담당하고, 하네스 기반 테스트 코드 작성/보강은 기본적으로 `review`, 명령 실행과 실패 목록은 `test`, 실패 원인 분석은 `analysis` 가 담당한다.
+- `test` 는 테스트 코드를 직접 작성하지 않는다. 테스트 보강이 필요하면 누락된 하네스 fixture, double, scenario, assertion, tests 항목을 문제점 리스트로 반환하고 `orchestra` 가 `review` 에 보강을 맡긴다.
 - 최상위 AI 는 사용자에게 하네스나 역할 체계를 다시 설명해달라고 요구하지 않는다. 필요한 질문은 프로젝트 주제, 목표, 범위, 실행 형태, 외부 연동 여부처럼 실제 제품 결정을 위해 필요한 것만 한다.
 - 이 저장소의 역할 분리와 하네스는 문서와 코드 구조를 통한 운영 규약이다. 별도 런타임 격리나 에이전트 권한 차단 기능으로 오해하면 안 된다.
 
@@ -347,6 +348,9 @@ ender.md 읽어 세션 종료할게
 중간 중단 인계 종료에서만 자기 진행 중 코드 작업을 다음 세션으로 넘기기 위해 위 handoff 파일 하나를 예외적으로 작성할 수 있다.
 이 역할의 출력은 오직 코드 변경이어야 한다.
 허용 파일 범위가 없거나 모호하면 임의로 범위를 넓히지 않고 `orchestra` 에 질문을 반환한다.
+이 역할은 기존 clean architecture 레이어와 의존 방향을 유지해야 하며, 편의상 `domain`, `application`, `infrastructure`, `bootstrap` 책임을 섞으면 안 된다.
+하네스 기반 테스트 코드의 기본 작성자는 `review` 이므로, `codegen` 은 `orchestra` 가 명시적으로 허용한 경우에만 `crates/xavi-harness/` 를 수정한다.
+허용된 경우에도 fixture, double, scenario, assertion, tests 구조를 따라 빠른 반복 테스트가 가능하게 만든다.
 
 ### `review`
 
@@ -364,6 +368,8 @@ ender.md 읽어 세션 종료할게
 
 이 역할은 검수 이후 하네스와 명령 기반 테스트를 실행한다.
 테스트 실패가 있으면 직접 구현하거나 원인을 확정하지 않고 실패 명령, 핵심 오류, 재현 방법, 문제점 리스트를 `orchestra` 에 반환한다.
+이 역할은 테스트 코드를 작성하지 않는다.
+테스트 보강이 필요하면 누락된 하네스 구조 항목과 필요한 시나리오를 문제점 리스트로 반환해 `orchestra` 가 `review` 에 맡기게 한다.
 
 ### `planning`
 

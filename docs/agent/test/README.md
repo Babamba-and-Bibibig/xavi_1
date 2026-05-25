@@ -46,9 +46,11 @@
 - 테스트 전에는 검수 결과와 실행 대상 명령을 확인한다.
 - 기본 검증은 `cargo check --workspace`, `cargo test --workspace`, 필요한 경우 `cargo clippy --workspace --all-targets -- -D warnings`, `cargo run -p xavi-bootstrap` 순서로 본다.
 - 하네스 테스트가 있으면 하네스 테스트를 우선 실행한다.
+- `test` 역할은 테스트 코드를 작성하거나 제품 코드를 수정하지 않는다.
+- 테스트 코드가 없거나 부족하면 직접 만들지 않고, 누락된 하네스 fixture, double, scenario, assertion, tests 항목을 문제점 리스트로 반환해 `orchestra` 가 `review` 에 보강을 맡기게 한다.
+- 반복 테스트는 기존 `crates/xavi-harness/` 구조와 Cargo 명령을 기준으로 실행한다.
 - 실패하면 실패 명령, 핵심 오류, 재현 방법, 문제점 리스트를 반환한다.
 - 문제점의 근본 원인 판단은 `analysis` 역할에 맡기고, `test` 는 분석을 대신하지 않는다.
-- 테스트 역할은 제품 코드를 직접 수정하지 않는다.
 - 서브 에이전트로 실행될 때는 사용 가능한 최신 프론티어급 모델을 기본으로 사용한다. 2026-05-22 현재 기준 기본값은 `gpt-5.5` 와 `xhigh` 다.
 
 ## 고정 루프 위치

@@ -11,3 +11,4 @@
 - 테스트가 필요한 변경인데 누락되지 않았는가
 - 테스트 보강이 필요하면 `crates/xavi-harness/` 의 fixture, double, scenario, assertion, tests 구조로 빠르게 반복 검증 가능하게 작성했는가
 - 문서 갱신이 필요한데 빠지지 않았는가
+- cycle alias/report route 변경이면 canonical `cycle_id` 유지, alias 원장 readback, malformed `aliases.json` fail-closed, by-alias viewer route 의 no-fallback 정책이 지켜졌는가

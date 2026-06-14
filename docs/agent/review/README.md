@@ -49,6 +49,7 @@
 - 제품 동작을 바꾸는 구현 수정은 직접 확장하지 않고 `orchestra` 에 반환해 `codegen` 으로 되돌린다.
 - 첫 검수는 생성된 코드 전체를 대상으로 하고, 재검수는 `orchestra` 가 지정한 수정된 부분만 확인한다.
 - 모든 검수 결과는 코더에게 전달 가능한 문제점 리스트 형식으로 작성한다.
+- 검수에는 역할 위반, 허용 범위 위반, `development_trace` 또는 역할 반환 trace 누락 위험도 포함한다.
 - 심각도 순서로 판단한다.
 - 구현 방향을 추정해 대신 설계하지 않는다.
 - 기획 문서를 대신 작성하지 않는다.
@@ -116,6 +117,29 @@
 - 수정해야 할 역할: `codegen` 또는 `review`
 - 수정 이유
 - 검수 후 실행해야 할 테스트 후보
+
+## Cycle Report Evidence Review
+
+`codegen` 이 코드를 생성, 수정, 삭제한 cycle 에서는 `review` 가 코드 자체의 문제뿐 아니라 report evidence 누락 위험도 확인한다.
+
+- 사용자 프롬프트 원문은 `user_request_verbatim`, `orchestra` 의 sub-agent 지시 원문은 `agent_dispatch.prompt_verbatim`, completion result 원문은 completion 직후 저장된 verbatim event 로 분리되어야 한다.
+- 원문 evidence 필드는 `source_ref`, `hash_sha256`, `timestamp`, `order`, `role`, `agent_id` 없이 표시되면 finding 으로 반환한다.
+- v2 trace event 의 `source_ref` 와 `hash_sha256` 가 없는 prompt 를 `user_request_verbatim` 또는 `agent_dispatch.prompt_verbatim` 처럼 원문 UI 영역에 표시하면 finding/failure 로 반환한다.
+- repo 코드가 Codex `spawn_agent` tool invocation 경계를 자동 interception 한다고 문서나 report 가 암시하면 finding 으로 반환한다. 허용되는 표현은 dev-console/CLI 내부 append 경로인 `code-level automatic` 과, `orchestra` 가 매번 수행해야 하는 `orchestra-protocol automatic` 의 분리다.
+- `spawn_agent` 직전 `xavi-bootstrap trace append` 또는 동등 trace append evidence 가 없는데도 dispatch 가 정상 evidence 처럼 처리되면 high residual blocker 로 반환한다.
+- runtime append evidence 가 없으면 `evidence_status=incomplete|fail` 이어야 한다.
+- 원문/요약 혼용은 finding 이다. `summary`, `derived`, `display` 성격의 데이터가 원문 필드나 원문 UI 영역에 들어가면 문제로 반환한다.
+- 기존 report, `result_summary`, `role_returns`, trace 요약을 원문처럼 표시하거나 복원/재생성한 흔적이 있으면 `verbatim evidence reconstruction` finding 으로 반환한다.
+- 원문 evidence 가 없는데 `audit.missing_evidence[]`, `audit.status=fail|warn`, 화면 경고가 없으면 finding 으로 반환한다.
+- append 실패가 있었는데 spawn 을 계속 진행했거나 cycle 을 fail-closed/incomplete 로 표시하지 않았으면 no fallback 위반 finding 으로 반환한다.
+- 변경된 코드 파일 목록과 실제 hunk 가 `codegen` 반환의 코드 변경 evidence 와 맞는지 확인한다.
+- 모든 변경 hunk 가 cycle report 의 `report.json.code_changes` 로 전달될 수 있는지 확인한다.
+- evidence 가 `file_path`, `language`, `change_kind`, `author_roles`, `summary_ko`, `hunks[]`, `hunks[].lines[]`, `hunks[].explanations[].text_ko` 구조로 schema 에 맞게 투영 가능한지 확인한다.
+- 파일명 표시 요구가 별도 파일명 전용 필드가 아니라 `file_path` 표시로 충족되는지 확인한다.
+- 새 파일은 전체 신규 내용이 added hunk 로 잡혔는지 확인한다.
+- 대형/바이너리/민감 가능 파일이 제외되었다면 `audit.json` 에 남길 제외 사유가 충분한지 확인한다.
+- 한국어 설명은 `summary_ko` 또는 `explanations[].text_ko` 같은 report layer annotation 으로 제공되어야 하며, 설명 목적만으로 소스 코드에 한국어 주석이 삽입되면 문제로 반환한다.
+- evidence 가 부족하면 구현 결함과 별개로 `cycle-report evidence gap` finding 으로 `orchestra` 에 반환한다.
 
 ## 고정 루프 위치
 

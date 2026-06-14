@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "apps/xavi-bootstrap",
+    "apps/xavi-dev-console",
     "crates/xavi-application",
     "crates/xavi-domain",
     "crates/xavi-harness",

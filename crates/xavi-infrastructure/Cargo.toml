@@ -9,5 +9,6 @@ publish = false
 workspace = true
 
 [dependencies]
+rusqlite = { version = "0.32.1", features = ["bundled"] }
 xavi-application = { path = "../xavi-application" }
 xavi-domain = { path = "../xavi-domain" }

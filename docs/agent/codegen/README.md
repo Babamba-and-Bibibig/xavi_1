@@ -49,6 +49,7 @@
 - 정상 작업에서는 문서를 갱신하지 않는다.
 - 이 역할은 코드 생성에만 집중한다.
 - 정상 작업의 출력은 코드 변경뿐이다.
+- 제품 코드 구현이 주 책임이며, `starter.md`, `docs/agent/`, `docs/human/` 같은 운영 문서는 수정하지 않는다.
 - 단, `ender.md` 가 `interrupted-handoff-close` 로 분류한 세션 종료에서는 `docs/agent/codegen/handoff/latest.md` 만 자기 인계로 작성하거나 갱신할 수 있다.
 - 이 예외는 진행 중 코드 작업을 다음 `codegen` 세션으로 넘기기 위한 것이며, 다른 역할 문서나 사용자 문서에는 적용되지 않는다.
 
@@ -99,6 +100,31 @@
 - `test` 실패 문제점 리스트는 직접 해석하지 않고, `analysis` 가 정리한 근본 원인 분석을 입력으로 받아 수정한다.
 - 고정 루프상 `codegen` 은 최초 구현, 1차 검수 수정, 1차 근본 원인 수정, 2차 검수 수정, 2차 근본 원인 수정까지만 맡는다.
 - 수정 후에는 변경 파일과 남은 위험만 반환하고, 검수나 테스트 통과를 스스로 단정하지 않는다.
+
+## Code Change Evidence
+
+코드를 생성, 수정, 삭제했다면 종료 응답에 cycle report 용 코드 변경 evidence 를 포함한다.
+문서 파일을 쓰라는 뜻이 아니라, `orchestra` 와 `cycle-report` 가 `report.json.code_changes` 를 만들 수 있도록 반환 요약에 근거를 제공하라는 뜻이다.
+`codegen` 반환은 원문 dispatch evidence 를 대체하지 않는다.
+`agent_dispatch.prompt_verbatim` 은 `orchestra` 가 spawn 직전에 trace DB 에 저장해야 하며, `codegen` 은 자기 completion result 에 포함된 원문과 요약을 혼동하지 않게 반환한다.
+
+반환 evidence 는 이번 cycle 에서 바꾼 모든 코드 hunk 를 포함한다.
+
+- `file_path`: 저장소 기준 상대 경로. 파일명 표시는 이 값을 기준으로 하며, 별도 파일명 전용 필드를 요구하지 않는다.
+- `language`: 언어 또는 파일 형식
+- `change_kind`: `added`, `modified`, `deleted`, `renamed`, `copied`, `mode_changed`, `unknown` 중 하나
+- `author_roles`: 변경 작성 역할 배열
+- 파일 단위 `summary_ko`
+- `raw_diff_ref`: 원본 diff 또는 raw evidence 참조. 없으면 `null`
+- `hunks[]`: 이번 cycle 에서 바꾼 모든 hunk
+- `hunks[].lines[]`: 각 라인의 `kind`, `old_line`, `new_line`, `content`
+- `hunks[].explanations[]`: `line_ref` 또는 `range_ref` 와 `text_ko`
+
+새 코드 파일은 전체 신규 내용을 added hunk 로 반환한다.
+삭제 파일은 삭제된 내용을 deleted hunk 로 반환한다.
+대형 파일, 바이너리 파일, 생성물, 비밀값 가능성이 있는 파일처럼 전체 hunk 를 반환하기 위험하면 파일 경로와 제외 사유, 위험 판단 근거를 반환해 `audit.json` 에 남길 수 있게 한다.
+한국어 설명은 report layer annotation 으로 제공하고, 설명을 위해 실제 소스 코드에 한국어 주석을 강제로 삽입하지 않는다.
+파생 요약은 `summary` 또는 `derived` 로 분명히 표시하고, source 원문을 나타내는 필드에는 `source_ref`, `hash_sha256`, `timestamp`, `order`, `role`, `agent_id` 가 없는 값을 넣지 않는다.
 
 ## 종료 규칙
 

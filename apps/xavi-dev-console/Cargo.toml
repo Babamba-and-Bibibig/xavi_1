@@ -1,14 +1,13 @@
 [package]
-name = "xavi-bootstrap"
+name = "xavi-dev-console"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-publish = false
-
-[lints]
-workspace = true
 
 [dependencies]
 xavi-application = { path = "../../crates/xavi-application" }
 xavi-domain = { path = "../../crates/xavi-domain" }
 xavi-infrastructure = { path = "../../crates/xavi-infrastructure" }
+
+[lints]
+workspace = true

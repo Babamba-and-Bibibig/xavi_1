@@ -34,6 +34,7 @@
 - `crates/xavi-infrastructure`: 외부 시스템 adapter
 - `crates/xavi-harness`: 시나리오 기반 검증 하네스
 - `apps/xavi-bootstrap`: 실제 실행 진입점과 composition root
+- `apps/xavi-dev-console`: `development_trace` 와 cycle report artifact 를 보는 부트스트랩 운영 지원 도구
 
 문서 구조는 다음 역할을 유지합니다.
 
@@ -56,6 +57,8 @@
 - `xavi-bootstrap` 실행 파일이 health-check service를 조립해 실행합니다.
 - `xavi-harness`가 health-check scenario를 테스트합니다.
 - AI 역할 문서와 세션 종료 문서가 포함되어 있습니다.
+- `development_trace` 원장과 cycle report/dev-console 운영 계약이 포함되어 있습니다.
+- 작업 사이클을 사람이 짧게 부를 수 있는 별칭을 예약하고 조회할 수 있습니다.
 
 현재 상태는 제품 완성본이 아니라, 프로젝트 주제를 주입하기 전의 안정적인 출발점입니다.
 
@@ -92,10 +95,14 @@ xavi-bootstrap initialized: status=Healthy, message=bootstrap completed
 ### AI 에이전트와 사용하는 방법
 
 이 저장소는 사람이 직접 코드를 읽고 수정할 수도 있지만, 주된 사용 방식은 AI 에이전트에게 문서 규약을 읽히고 역할에 따라 진행하게 하는 것입니다.
-최상위 세션만 `starter.md` 를 읽고, `orchestra` 가 만드는 서브 에이전트는 각자의 `docs/agent/<role>/README.md` 만 먼저 읽습니다.
+최상위 세션만 `starter.md` 를 읽고, 개발 작업에서는 그 최상위 세션이 `orchestra` 역할로 사용자와 소통합니다.
+`orchestra` 는 제품 코드를 직접 구현하는 역할이 아니라 계획, 구현, 검수, 테스트, 문서화 역할의 서브 에이전트를 생성하고 관리하며 반환 결과를 확인해 사용자에게 보고하는 역할입니다.
+`orchestra` 가 만드는 서브 에이전트는 각자의 `docs/agent/<role>/README.md` 만 먼저 읽습니다.
 상세한 고정 루프와 예외 규칙은 `starter.md` 를 권위 문서로 봅니다.
 `AGENTS.md` 를 자동으로 읽는 코딩 에이전트 환경에서는 루트 `AGENTS.md` 가 짧은 사전 부팅 계약 역할을 하며, 사용자가 매번 "서브 에이전트를 생성해라" 라고 말하지 않아도 기본 `orchestra` 모드로 시작해야 합니다.
-단, 실제 sub-agent 생성은 런타임이 `spawn_agent` 같은 도구를 제공하고 상위 정책이 사용을 허용할 때만 가능합니다. 그런 도구가 없거나 정책상 자동 생성이 금지되면 에이전트는 그 한계를 말하고 제한된 fallback 으로 진행해야 합니다.
+런타임이 `spawn_agent` 같은 실제 sub-agent 도구를 제공하고 상위 정책이 사용을 허용하는 환경에서는 개발 작업을 실제 서브 에이전트 기반으로 진행해야 합니다.
+그런 도구가 없거나 상위 정책이 자동 생성을 막는 환경에서는 단일 컨텍스트 fallback 구현으로 우회하지 않습니다. 에이전트는 그 제한을 사용자에게 보고하고 개발 작업을 중단한 뒤, 필요한 운영 방식, 문서, 도구 사용, 승인 지점의 수정 대상으로 남겨야 합니다.
+승인된 최초 계획의 구현 방식에서 문제가 생긴 경우에도 다른 방식으로 몰래 우회 구현하지 않습니다. 원래 방식, 관련 문서, 또는 도구 사용 문제 자체를 수정해 다시 사용할 수 있게 만드는 것이 이 저장소의 운영 원칙입니다.
 한 세션에서 `starter.md` 를 한 번 읽었다면, 이후 프로젝트 개발 프롬프트들은 별도 설명이 없어도 같은 `orchestra` 계약을 계속 상속해야 합니다.
 
 처음 보는 사용자는 아래 순서만 따르면 됩니다.
@@ -104,7 +111,7 @@ xavi-bootstrap initialized: status=Healthy, message=bootstrap completed
 2. Codex 같은 코딩 에이전트가 `AGENTS.md` 를 자동으로 읽는지 확인하고, 아니면 `starter.md` 를 읽게 합니다.
 3. 만들고 싶은 프로젝트 주제를 자연어로 설명합니다.
 4. 에이전트가 내는 초기 계획을 읽고 승인하거나 수정합니다.
-5. 구현은 에이전트가 역할별 루프에 따라 진행하게 둡니다.
+5. 구현은 실제 sub-agent 도구가 있는 환경에서 에이전트가 역할별 루프에 따라 진행하게 둡니다.
 6. 테스트 결과와 최종 보고를 확인합니다.
 7. 세션이 길어지거나 끝낼 때는 `ender.md` 로 정리하게 합니다.
 
@@ -152,13 +159,34 @@ ender.md 읽고 세션 종료해.
 
 이 흐름을 따르면 에이전트는 시작, 주제 주입, 구현, 검수, 테스트, 종료 인계를 문서 규약에 맞춰 진행하게 됩니다.
 
+### 작업 사이클 별칭
+
+긴 cycle id는 파일 경로와 자동화에서 계속 사용하고, 사람끼리 회의하거나 문서에서 언급할 때는 짧은 별칭을 붙일 수 있습니다.
+별칭은 `분류-NNN` 형식입니다. 초기 문서에서는 특정 과거 cycle 대신 `<cycle-id>` 와 `<분류-NNN>` placeholder 를 사용합니다.
+
+별칭을 확인하려면 아래 명령을 사용합니다.
+
+```bash
+cargo run -p xavi-bootstrap -- trace resolve-alias --alias <분류-NNN>
+```
+
+새 별칭은 정확한 이름을 직접 지정하거나, 분류만 주고 다음 번호를 받을 수 있습니다.
+
+```bash
+cargo run -p xavi-bootstrap -- trace reserve-alias --cycle <cycle_id> --alias <분류-NNN> --title "<짧은 제목>"
+cargo run -p xavi-bootstrap -- trace reserve-alias --cycle <cycle_id> --category <분류> --title "<짧은 제목>"
+```
+
+보고서 서버가 켜져 있으면 `/reports/by-alias/<별칭>/` 경로로도 같은 사이클 보고서에 접근할 수 있습니다.
+별칭 색인인 `aliases.json` 이 깨졌거나 필드가 맞지 않으면 보고서 서버는 임의로 추측하지 않고 오류를 보여줍니다.
+
 ### 권장 작업 흐름
 
 1. `starter.md`로 현재 세션 역할과 문서 체계를 확인합니다.
 2. 만들 프로젝트의 주제, 사용자, 핵심 기능, 실행 형태를 정합니다.
 3. `inject_subject_once.md`를 통해 주제를 코드와 문서에 처음 주입합니다.
 4. `planning` 역할이 계획을 작성하고, 사용자가 승인하거나 수정합니다.
-5. `codegen` 역할이 승인된 계획에 따라 구현합니다.
+5. 실제 sub-agent 도구가 있는 환경에서는 `codegen` 역할의 서브 에이전트가 승인된 계획에 따라 구현합니다.
 6. `review` 역할이 구현 결과를 검수합니다.
 7. `test` 역할이 하네스와 Cargo 명령으로 검증합니다.
 8. 실패가 있으면 `analysis` 역할이 원인을 분석하고 다시 수정 루프로 보냅니다.
@@ -214,6 +242,8 @@ AI가 혼자 계획, 구현, 검수, 테스트, 문서화를 모두 처리하면
 
 - 이 저장소는 AI 에이전트를 실제로 실행하는 런타임 플랫폼이 아닙니다.
 - 역할 분리는 문서 규약과 운영 절차로 강제됩니다. 별도 프로세스 격리나 권한 차단 런타임은 포함되어 있지 않습니다.
+- 실제 서브 에이전트 생성 가능 여부는 사용 중인 AI 런타임과 상위 정책에 달려 있습니다. 이 저장소의 문서 규약은 도구가 있는 환경에서 실제 서브 에이전트 사용을 요구하지만, 없는 도구를 만들어내지는 못합니다.
+- 도구나 정책이 막는 경우 이 저장소의 규칙은 fallback 구현을 허용하지 않습니다. 제한을 보고하고 멈춘 뒤 운영 방식이나 도구 사용 문제를 수정 대상으로 삼아야 합니다.
 - 현재 예제 코드는 health-check 수준입니다. 실제 프로젝트 주제는 사용자가 주입해야 합니다.
 - 공개 저장소로 사용할 때는 개인 경로, 로컬 서버 주소, 비밀 키, `.env` 파일이 들어가지 않게 확인해야 합니다.
 - 이 저장소는 실행 바이너리를 포함하므로 `Cargo.lock` 을 함께 커밋하는 것을 권장합니다. 공개 전에 lockfile이 누락되지 않았는지 확인하세요.
@@ -223,7 +253,8 @@ AI가 혼자 계획, 구현, 검수, 테스트, 문서화를 모두 처리하면
 ```text
 .
 ├── apps/
-│   └── xavi-bootstrap/          # 실행 진입점
+│   ├── xavi-bootstrap/          # 실행 진입점
+│   └── xavi-dev-console/        # development_trace/report viewer 운영 지원 도구
 ├── crates/
 │   ├── xavi-domain/             # 도메인 모델
 │   ├── xavi-application/        # 유스케이스와 port
@@ -290,6 +321,7 @@ The code keeps these layers:
 - `crates/xavi-infrastructure`: external system adapters
 - `crates/xavi-harness`: scenario-based verification harness
 - `apps/xavi-bootstrap`: executable entrypoint and composition root
+- `apps/xavi-dev-console`: bootstrap operations support tool for viewing `development_trace` and cycle report artifacts
 
 The documentation keeps these roles:
 
@@ -312,6 +344,8 @@ The repository is currently a small runnable scaffold.
 - `xavi-bootstrap` composes and runs a health-check service.
 - `xavi-harness` tests health-check scenarios.
 - AI role documents and session shutdown documents are included.
+- The `development_trace` ledger and cycle report/dev-console operating contracts are included.
+- Development cycles can reserve and resolve short human-readable aliases.
 
 This is the stable starting point before injecting a concrete project subject.
 
@@ -348,10 +382,14 @@ xavi-bootstrap initialized: status=Healthy, message=bootstrap completed
 ### How To Use It With An AI Agent
 
 You can read and edit this repository manually, but the intended workflow is to ask an AI agent to follow the operating documents and work by role.
-Only the top-level session reads `starter.md`; sub-agents created by `orchestra` start from their own `docs/agent/<role>/README.md`.
+Only the top-level session reads `starter.md`; for development work, that top-level session acts as `orchestra` and communicates with the user.
+`orchestra` is not the role that directly implements product code. It creates and manages the planning, implementation, review, test, and documentation sub-agents, checks their returned results, and reports verified state back to the user.
+Sub-agents created by `orchestra` start from their own `docs/agent/<role>/README.md`.
 Treat `starter.md` as the authoritative document for the full fixed loop and exceptions.
 In coding-agent environments that automatically load `AGENTS.md`, the root `AGENTS.md` acts as a short pre-boot contract, so the user should not need to repeat "create sub-agents" on every request.
-Real sub-agent creation still depends on the runtime exposing a tool such as `spawn_agent` and allowing it under higher-priority policy. If no real sub-agent tool is available or automatic spawning is forbidden, the agent must say so and only use a limited single-context fallback.
+When the runtime exposes a real sub-agent tool such as `spawn_agent` and higher-priority policy allows it, development work must use real sub-agents.
+If no real sub-agent tool is available, or if higher-priority policy blocks automatic spawning, the agent must not switch into a single-context fallback implementation. It should report the limitation, stop the development work, and leave the operating mode, documentation, tool usage, or approval point as the thing that must be fixed.
+If the implementation method from the approved initial plan turns out to be broken, the agent should not silently implement the feature through a different workaround. The method, document, or tool-use problem itself should be corrected so the approved path can be used.
 Once the top-level session has read `starter.md` once, later project-development prompts in the same session should continue to inherit the same `orchestra` contract.
 
 If you are new to this repository, use this simple flow.
@@ -360,7 +398,7 @@ If you are new to this repository, use this simple flow.
 2. Check whether a coding agent such as Codex automatically reads `AGENTS.md`; if not, ask it to read `starter.md`.
 3. Describe the project you want to build in plain language.
 4. Review the agent's initial plan, then approve or revise it.
-5. Let the agent follow the role-based loop for implementation.
+5. In an environment with real sub-agent tools, let the agent follow the role-based loop for implementation.
 6. Check the test result and final report.
 7. When the session gets long or ends, ask the agent to use `ender.md`.
 
@@ -408,13 +446,34 @@ Read ender.md and close the session.
 
 This keeps startup, subject injection, implementation, review, testing, and handoff aligned with the repository rules.
 
+### Cycle Aliases
+
+Long cycle ids remain the stable value for files and automation, but each work cycle can also have a short name for meetings and human-facing notes.
+Aliases use the `category-NNN` format. Baseline documentation uses placeholders such as `<cycle-id>` and `<category-NNN>` instead of a specific past cycle.
+
+To resolve an alias, run:
+
+```bash
+cargo run -p xavi-bootstrap -- trace resolve-alias --alias <category-NNN>
+```
+
+To reserve a new alias, either provide the exact alias or provide only the category and let the tool allocate the next sequence:
+
+```bash
+cargo run -p xavi-bootstrap -- trace reserve-alias --cycle <cycle_id> --alias <category-NNN> --title "<short title>"
+cargo run -p xavi-bootstrap -- trace reserve-alias --cycle <cycle_id> --category <category> --title "<short title>"
+```
+
+When the report server is running, `/reports/by-alias/<alias>/` opens the same cycle report through the alias.
+If `aliases.json` is malformed, the report server fails closed and shows an error instead of guessing the target cycle.
+
 ### Recommended Workflow
 
 1. Use `starter.md` to identify the current session role and documentation system.
 2. Define the project subject, users, core features, and runtime shape.
 3. Use `inject_subject_once.md` to inject the subject into code and documentation.
 4. Let the `planning` role write a plan, then approve or revise it.
-5. Let the `codegen` role implement the approved plan.
+5. When real sub-agent tools are available, let the `codegen` sub-agent implement the approved plan.
 6. Let the `review` role inspect the implementation.
 7. Let the `test` role run harness and Cargo verification.
 8. If tests fail, let the `analysis` role identify the root cause before another fix.
@@ -470,6 +529,8 @@ When used properly, this bootstrap should help you:
 
 - This repository is not an AI-agent runtime platform.
 - Role separation is enforced by documentation and operating procedure. It does not include process isolation or a permission runtime.
+- Whether real sub-agents can be created depends on the AI runtime and higher-priority policy in use. This repository's operating documents require real sub-agents when the tool exists, but they cannot create a missing runtime capability.
+- If tools or policy block real sub-agent creation, this repository's rules do not allow fallback implementation. The agent should report the limitation, stop, and treat the operating mode or tool-use problem as the thing to fix.
 - The current sample code is only a health-check flow. The real project subject must be injected by the user.
 - Before publishing, check that no private paths, local server addresses, secrets, or `.env` files are included.
 - This repository includes an executable binary, so committing `Cargo.lock` is recommended. Before publishing, make sure the lockfile is included.
@@ -479,7 +540,8 @@ When used properly, this bootstrap should help you:
 ```text
 .
 ├── apps/
-│   └── xavi-bootstrap/          # executable entrypoint
+│   ├── xavi-bootstrap/          # executable entrypoint
+│   └── xavi-dev-console/        # development_trace/report viewer operations support tool
 ├── crates/
 │   ├── xavi-domain/             # domain model
 │   ├── xavi-application/        # use cases and ports

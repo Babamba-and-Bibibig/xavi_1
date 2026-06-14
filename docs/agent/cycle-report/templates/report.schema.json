@@ -1,0 +1,786 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xavi.local/schemas/development-cycle-report.json",
+  "title": "Development Cycle Report",
+  "type": "object",
+  "required": [
+    "cycle_id",
+    "status",
+    "generated_at",
+    "evidence_status",
+    "user_request_verbatim",
+    "user_request_display_summary_ko",
+    "result_summary",
+    "orchestra_instruction",
+    "orchestra_delegations",
+    "role_returns",
+    "failure_point",
+    "verification_result",
+    "changed_files",
+    "code_changes",
+    "artifacts",
+    "user",
+    "planning",
+    "roles",
+    "failures",
+    "files",
+    "commands",
+    "trace",
+    "derived_summaries",
+    "audit",
+    "limitations",
+    "next_decisions"
+  ],
+  "properties": {
+    "cycle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cycle_alias": {
+      "type": ["string", "null"],
+      "pattern": "^[A-Za-z0-9_가-힣ㄱ-ㅎㅏ-ㅣ]+-[0-9]{3,}$",
+      "description": "Human-readable alias in category-NNN form. The canonical cycle_id remains authoritative."
+    },
+    "cycle_category": {
+      "type": ["string", "null"],
+      "description": "Display category used in cycle_alias."
+    },
+    "cycle_category_key": {
+      "type": ["string", "null"],
+      "description": "Normalized category key used for sequence allocation and collision checks."
+    },
+    "cycle_sequence": {
+      "type": ["integer", "string", "null"],
+      "description": "Numeric alias sequence. Display form is at least three digits and starts at 001."
+    },
+    "cycle_title": {
+      "type": ["string", "null"],
+      "description": "Optional short human title for the cycle."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "failure", "interrupted", "blocked"]
+    },
+    "product_status": {
+      "type": ["string", "null"],
+      "enum": ["success", "failure", "interrupted", "blocked", null],
+      "description": "Product-level cycle outcome copied from the report close status. This is distinct from trace_audit_status."
+    },
+    "cycle_status_event_id": {
+      "type": ["string", "null"],
+      "description": "Trace event id for the cycle status record when available."
+    },
+    "cycle_report_refresh_append_event_id": {
+      "type": ["string", "null"],
+      "description": "Trace event id for a cycle-report refresh return append when available."
+    },
+    "trace_audit_status": {
+      "type": ["string", "null"],
+      "enum": ["passed", "warning", "failed", "pass", "warn", "fail", null],
+      "description": "Raw trace audit status as emitted by the trace audit layer. Report-layer audit.status uses pass/warn/fail."
+    },
+    "trace_audit_checked_entry_count": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Number of trace entries checked by the trace audit when copied into report.json."
+    },
+    "started_at": {
+      "type": ["string", "null"]
+    },
+    "ended_at": {
+      "type": ["string", "null"]
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "updated_at": {
+      "type": ["string", "null"]
+    },
+    "amended_at": {
+      "type": ["string", "null"]
+    },
+    "amendment_reason": {
+      "type": ["string", "null"]
+    },
+    "evidence_status": {
+      "type": "string",
+      "enum": ["complete", "incomplete", "fail"],
+      "description": "Completeness of required verbatim evidence. This is separate from audit.status, which uses pass/warn/fail."
+    },
+    "evidence_warning": {
+      "type": ["string", "null"],
+      "description": "Human-readable warning shown when evidence_status is incomplete or fail."
+    },
+    "user_request": {
+      "type": "string",
+      "deprecated": true,
+      "description": "Legacy derived projection only. Viewers must not present this as verbatim user evidence."
+    },
+    "user_request_verbatim": {
+      "oneOf": [
+        { "$ref": "#/$defs/verbatim_evidence" },
+        { "type": "null" }
+      ],
+      "description": "Original user request evidence. Null means the original evidence is missing and must be audited."
+    },
+    "user_request_display_summary_ko": {
+      "type": "string",
+      "description": "Korean display summary derived from evidence. This is not verbatim text."
+    },
+    "result_summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Derived/display result summary. This is not a substitute for role return, command, raw trace, or audit evidence."
+    },
+    "orchestra_instruction": {
+      "type": "string",
+      "minLength": 1,
+      "deprecated": true,
+      "description": "Legacy derived projection only. Use orchestra_delegations[].prompt_verbatim for original prompt evidence."
+    },
+    "orchestra_delegations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "role",
+          "agent_id",
+          "order",
+          "prompt_verbatim",
+          "prompt_derived_summary_ko"
+        ],
+        "oneOf": [
+          { "required": ["dispatch_event_id"] },
+          { "required": ["source_ref"] }
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "agent_id": {
+            "type": ["string", "null"]
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "prompt_verbatim": {
+            "oneOf": [
+              { "$ref": "#/$defs/verbatim_evidence" },
+              { "type": "null" }
+            ]
+          },
+          "prompt_derived_summary_ko": {
+            "type": "string"
+          },
+          "dispatch_event_id": {
+            "type": ["string", "null"]
+          },
+          "source_ref": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "role_returns": {
+      "type": "object",
+      "description": "Role return display projection keyed by role or agent label. Original return evidence belongs in return_verbatim/response_verbatim/result_verbatim when copied into report.json, or in raw.json when omitted here.",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "string",
+            "description": "Legacy derived return display string only. Viewers must not treat this as verbatim evidence."
+          },
+          {
+            "type": "object",
+            "required": ["return_summary"],
+            "properties": {
+              "dispatch_summary": {
+                "type": "string",
+                "description": "Derived/display dispatch summary, not prompt verbatim."
+              },
+              "return_summary": {
+                "type": "string",
+                "description": "Derived/display return summary, not response verbatim."
+              },
+              "return_derived_summary_ko": {
+                "type": "string",
+                "description": "Korean display summary derived from return evidence."
+              },
+              "return_verbatim": {
+                "oneOf": [
+                  { "$ref": "#/$defs/verbatim_evidence" },
+                  { "type": "null" }
+                ],
+                "description": "Original role return evidence. Null means missing and must be audited."
+              },
+              "response_verbatim": {
+                "oneOf": [
+                  { "$ref": "#/$defs/verbatim_evidence" },
+                  { "type": "null" }
+                ],
+                "description": "Original agent response evidence when the trace contract names it response_verbatim."
+              },
+              "result_verbatim": {
+                "oneOf": [
+                  { "$ref": "#/$defs/verbatim_evidence" },
+                  { "type": "null" }
+                ],
+                "description": "Original agent result evidence when the trace contract names it result_verbatim."
+              },
+              "context_report": { "type": ["string", "object", "null"] },
+              "orchestra_acceptance": { "type": "string" },
+              "changed_files": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "verification_result": { "type": "string" },
+              "limitations": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "failure_point": {
+      "type": "string"
+    },
+    "verification_result": {
+      "type": "string",
+      "minLength": 1
+    },
+    "changed_files": {
+      "type": "array",
+      "description": "Derived/display file index only. The default code-change evidence is code_changes[] plus audit.excluded_code_changes[].",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+              "path": { "type": "string" },
+              "actor": { "type": "string" },
+              "intent": { "type": "string" },
+              "status": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "code_changes": {
+      "type": "array",
+      "description": "Default hunk-level code change evidence. Every included file must expose all changed hunks and lines; omitted hunks require audit.excluded_code_changes with an exact reason.",
+      "items": {
+        "type": "object",
+        "required": ["file_path", "language", "change_kind", "author_roles", "summary_ko", "hunks"],
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "language": {
+            "type": ["string", "null"]
+          },
+          "change_kind": {
+            "type": "string",
+            "enum": ["added", "modified", "deleted", "renamed", "copied", "mode_changed", "unknown"]
+          },
+          "author_roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "summary_ko": {
+            "type": "string",
+            "description": "Derived Korean report-layer explanation, not source code and not a diff replacement."
+          },
+          "raw_diff_ref": {
+            "type": ["string", "null"]
+          },
+          "cycle_alias": {
+            "type": ["string", "null"]
+          },
+          "cycle_category": {
+            "type": ["string", "null"]
+          },
+          "cycle_category_key": {
+            "type": ["string", "null"]
+          },
+          "cycle_sequence": {
+            "type": ["integer", "string", "null"]
+          },
+          "cycle_title": {
+            "type": ["string", "null"]
+          },
+          "hunks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["old_start", "old_lines", "new_start", "new_lines", "heading", "summary_ko", "lines", "explanations"],
+              "properties": {
+                "old_start": {
+                  "type": ["integer", "null"],
+                  "minimum": 0
+                },
+                "old_lines": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "new_start": {
+                  "type": ["integer", "null"],
+                  "minimum": 0
+                },
+                "new_lines": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "heading": {
+                  "type": "string"
+                },
+                "summary_ko": {
+                  "type": "string",
+                  "description": "Derived hunk explanation. The authoritative changed lines are hunks[].lines[]."
+                },
+                "lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["kind", "old_line", "new_line", "content"],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["context", "add", "remove"]
+                      },
+                      "old_line": {
+                        "type": ["integer", "null"],
+                        "minimum": 0
+                      },
+                      "new_line": {
+                        "type": ["integer", "null"],
+                        "minimum": 0
+                      },
+                      "content": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "explanations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["text_ko"],
+                    "oneOf": [
+                      {
+                        "required": ["line_ref"]
+                      },
+                      {
+                        "required": ["range_ref"]
+                      }
+                    ],
+                    "properties": {
+                      "line_ref": {
+                        "type": "string"
+                      },
+                      "range_ref": {
+                        "type": "string"
+                      },
+                      "text_ko": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["index_html", "report_json", "raw_json", "audit_json", "context_md", "latest_json"],
+      "properties": {
+        "index_html": { "type": "string" },
+        "report_json": { "type": "string" },
+        "raw_json": { "type": "string" },
+        "audit_json": { "type": "string" },
+        "context_md": { "type": "string" },
+        "latest_json": { "type": "string" },
+        "aliases_json": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "user": {
+      "type": "object",
+      "required": ["initial_request", "corrections", "approvals", "stop_or_blocked_signals"],
+      "properties": {
+        "initial_request": {
+          "type": "string",
+          "deprecated": true,
+          "description": "Legacy derived projection; use user_request_verbatim for original evidence."
+        },
+        "corrections": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "approvals": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "stop_or_blocked_signals": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "planning": {
+      "type": "object",
+      "required": ["initial_plan", "final_completion_report", "user_response"],
+      "properties": {
+        "initial_plan": { "type": "string" },
+        "final_completion_report": { "type": "string" },
+        "user_response": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role", "dispatch", "return", "context_report", "orchestra_acceptance"],
+        "properties": {
+          "role": { "type": "string" },
+          "dispatch": {
+            "type": "string",
+            "deprecated": true,
+            "description": "Legacy derived dispatch projection; use orchestra_delegations[].prompt_verbatim for original prompt evidence."
+          },
+          "return": { "type": "string" },
+          "context_report": { "type": "string" },
+          "orchestra_acceptance": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "actor", "intent", "status"],
+        "properties": {
+          "path": { "type": "string" },
+          "actor": { "type": "string" },
+          "intent": { "type": "string" },
+          "status": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "commands": {
+      "type": "array",
+      "description": "Verification command records. Display command/result fields are not substitutes for command_verbatim/result_verbatim/output_verbatim or raw trace evidence.",
+      "items": {
+        "type": "object",
+        "required": ["command", "actor", "result", "evidence"],
+        "properties": {
+          "command": { "type": "string" },
+          "actor": { "type": "string" },
+          "result": { "type": "string" },
+          "evidence": {
+            "type": "string",
+            "description": "Evidence reference or display note. Raw command output must use verbatim fields or raw.json."
+          },
+          "evidence_ref": { "type": ["string", "null"] },
+          "command_verbatim": {
+            "oneOf": [
+              { "$ref": "#/$defs/verbatim_evidence" },
+              { "type": "null" }
+            ],
+            "description": "Original command text evidence when separately captured."
+          },
+          "result_verbatim": {
+            "oneOf": [
+              { "$ref": "#/$defs/verbatim_evidence" },
+              { "type": "null" }
+            ],
+            "description": "Original command result evidence when separately captured."
+          },
+          "output_verbatim": {
+            "oneOf": [
+              { "$ref": "#/$defs/verbatim_evidence" },
+              { "type": "null" }
+            ],
+            "description": "Original command stdout/stderr evidence when separately captured."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["stage", "role", "symptom", "evidence"],
+        "properties": {
+          "stage": { "type": "string" },
+          "role": { "type": "string" },
+          "symptom": { "type": "string" },
+          "evidence": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "trace": {
+      "type": "object",
+      "required": ["development_trace_ref", "orchestra_trace_ref", "raw_export_ref"],
+      "properties": {
+        "development_trace_ref": { "type": "string" },
+        "orchestra_trace_ref": { "type": "string" },
+        "raw_export_ref": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "derived_summaries": {
+      "type": "object",
+      "description": "Display summaries derived from original evidence. Viewers must label these as non-verbatim.",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string" },
+          {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          {
+            "type": "object",
+            "additionalProperties": true
+          },
+          { "type": "null" }
+        ]
+      },
+      "default": {}
+    },
+    "audit": {
+      "type": "object",
+      "required": [
+        "status",
+        "missing_required_inputs",
+        "warnings",
+        "missing_evidence",
+        "invalid_evidence",
+        "derived_not_verbatim"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pass", "warn", "fail"]
+        },
+        "evidence_status": {
+          "type": "string",
+          "enum": ["complete", "incomplete", "fail"]
+        },
+        "missing_required_inputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "missing_evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/audit_evidence_note" },
+          "default": []
+        },
+        "invalid_evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/audit_evidence_note" },
+          "default": []
+        },
+        "derived_not_verbatim": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/audit_evidence_note" },
+          "default": []
+        },
+        "excluded_code_changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["file_path", "reason"],
+            "properties": {
+              "file_path": { "type": "string" },
+              "reason": {
+                "type": "string",
+                "enum": ["sensitive", "large", "binary", "generated", "license", "unavailable"]
+              },
+              "evidence_ref": { "type": ["string", "null"] },
+              "audit_json_key": {
+                "type": "string",
+                "const": "excluded_code_changes"
+              }
+            },
+            "additionalProperties": false
+          },
+          "default": []
+        },
+        "trace_audit": {
+          "type": ["object", "null"],
+          "description": "Raw trace audit result when copied into report.json. Do not synthesize this from summaries.",
+          "additionalProperties": true
+        },
+        "trace_audit_command": {
+          "type": ["object", "null"],
+          "description": "Raw command execution record for the trace audit command.",
+          "additionalProperties": true
+        },
+        "findings": {
+          "type": "array",
+          "description": "Trace audit findings when audit.json/report.json stores them outside trace_audit.",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "summary_provenance": {
+      "type": "object",
+      "description": "Top-level provenance marker for legacy display summaries that are not verbatim evidence.",
+      "required": ["classification", "applies_to", "note"],
+      "properties": {
+        "classification": {
+          "type": "string",
+          "minLength": 1
+        },
+        "applies_to": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "final_open": {
+      "type": ["object", "null"],
+      "description": "Report-server/browser-open readback summary. It is operational evidence about artifact viewing, not a substitute for verbatim role evidence.",
+      "additionalProperties": true
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "next_decisions": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "verbatim_evidence": {
+      "type": "object",
+      "required": [
+        "text",
+        "source_type",
+        "source_ref",
+        "role",
+        "agent_id",
+        "hash_sha256",
+        "timestamp",
+        "order"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agent_id": {
+          "type": ["string", "null"]
+        },
+        "hash_sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "timestamp": {
+          "type": "string",
+          "minLength": 1
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "audit_evidence_note": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "required": ["field"],
+          "properties": {
+            "field": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            },
+            "missing": {
+              "type": "string",
+              "minLength": 1
+            },
+            "current_value_classification": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source_ref": {
+              "type": ["string", "null"]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

@@ -3,10 +3,13 @@
 ## 빠른 파악 메모
 
 - 이 저장소는 로컬 LLM 앱이나 완성된 제품이 아니라 Rust clean-architecture 기반의 AI 협업 프로젝트 부트스트랩이다.
-- 목적은 사용자가 주제를 정하거나 개발 업무를 맡기면 `orchestra`, `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs`, `ephemeral` 역할로 나누어 새 프로젝트를 시작하거나 구현 작업을 진행하게 하는 것이다.
+- 목적은 사용자가 주제를 정하거나 개발 업무를 맡기면 `orchestra`, `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs`, `cycle-report`, `ephemeral` 기본 역할과 필요한 프로젝트별 전문 역할로 나누어 새 프로젝트를 시작하거나 구현 작업을 진행하게 하는 것이다.
 - 실제 구현은 `xavi-domain`, `xavi-application`, `xavi-infrastructure`, `xavi-harness`, `apps/xavi-bootstrap` 구조와 health-check 샘플/하네스 테스트 수준이다.
 - 새 주제를 처음 주입할 때는 `inject_subject_once.md` 를 사용하고, 세션 종료나 재시작 인계가 필요할 때는 `ender.md` 를 적용한다.
+- `starter.md` 는 부팅 계약과 최상위 라우팅을 맡고, 세부 역할 행동 규칙은 각 `docs/agent/<role>/README.md` 가 맡는다.
+- 이 문서는 특정 프로젝트가 이미 개발 중인 상태를 가정하지 않으며, 주제가 아직 삽입되지 않은 범용 bootstrap 초기 상태를 보존한다.
 - 이 문서의 역할 규칙은 문서 기반 운영 규약이며, 별도 에이전트 런타임이나 권한 격리 시스템을 구현한 것은 아니다.
+- 문서 규칙은 런타임 강제가 아니므로, 역할 위반 여부는 `development_trace` 원장과 `orchestra` trace/export/mirror 의 즉시 기록 및 반환 검수로 1회 작업 사이클 안에서 드러나게 한다.
 - 런타임이 루트 `AGENTS.md` 를 자동으로 읽는 환경이면, `AGENTS.md` 는 이 문서를 읽기 전의 짧은 자동 부팅 계약으로 동작한다.
 
 이 문서는 아래처럼 아주 짧은 부팅 명령만으로도 최상위 AI 세션이 자기 역할을 식별하고, 필요한 역할 문서로 이동하게 만들기 위한 최상위 부팅 규약이다.
@@ -46,8 +49,8 @@ starter.md 읽어.
 2. `orchestra` 는 직접 구현, 직접 계획 초안 작성, 직접 리뷰 판정, 직접 테스트 루프 수행, 직접 최종 문서화를 시작하지 않는다.
 3. 개발 업무이면 먼저 필요한 역할 서브 에이전트와 산출물을 나누고, `planning` 을 서브 에이전트로 실행해 초기 계획을 받는다.
 4. 실제 sub-agent 생성 도구가 있으면 사용자가 다시 말하지 않아도 `spawn_agent` 같은 도구로 서브 에이전트를 생성한다.
-5. 상위 런타임 또는 도구 정책이 명시적 사용자 승인 없이는 sub-agent 생성을 금지하면, 조용히 단일 컨텍스트 작업으로 바꾸지 말고 그 한계를 사용자에게 보고한다.
-6. 실제 sub-agent 생성 도구가 없으면 그 사실을 사용자에게 먼저 알리고, 같은 컨텍스트 안에서 역할을 흉내 내는 fallback 을 사용할지 확인하거나 제한적으로 진행한다.
+5. 상위 런타임 또는 도구 정책이 명시적 사용자 승인 없이는 sub-agent 생성을 금지하면, 조용히 단일 컨텍스트 작업으로 바꾸지 말고 그 한계와 필요한 승인 또는 런타임 수정 지점을 사용자에게 보고하고 중단한다.
+6. 실제 sub-agent 생성 도구가 없으면 그 사실을 사용자에게 먼저 알리고 중단한다. 같은 컨텍스트 안에서 역할을 흉내 내는 fallback, 제한 구현, 직접 구현 전환은 사용하지 않는다.
 7. 오케스트라가 자기 컨텍스트를 써도 되는 일은 사용자 대화, 역할 배정, 서브 에이전트 입력 작성, 반환 검수, 다음 단계 조율, 압축 보고뿐이다.
 
 이 게이트는 뒤의 상세 개발 루프보다 우선하는 시작 규칙이다.
@@ -152,7 +155,7 @@ starter.md 읽어.
 - 사용자가 개발 업무를 주면 `orchestra` 는 기본 7개 서브 에이전트인 `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs` 를 생성하거나 실행 가능한 상태로 준비한다.
 - 개발 업무의 작업 지시는 예시가 아니라 절대 고정 루프다. `planning` 뒤와 `codegen` 앞에는 반드시 사용자 보고/수정 게이트를 둔다. 역할 실행 순서는 반드시 `planning` → `codegen` → `review` → `codegen` → `test` → `analysis` → `codegen` → `review` → `codegen` → `test` → `analysis` → `codegen` → `test` → `planning` 보고 순서를 따른다. 첫 `test` 가 완전 성공하면 문제 분석/재수정 루프를 건너뛰고 결과 취합과 최종 보고 단계로 넘어간다.
 - 위 순서의 마지막 `test` 이후에는 더 이상 코드 개발을 진행하지 않고, `orchestra` 가 결과를 취합해 `planning` 에 최종 보고서 작성을 맡긴다.
-- `planning` 보고서를 사용자에게 전달하고 사용자의 반응까지 받은 뒤, `user-docs` 는 사용자용 문서를 갱신하고 `ai-docs` 는 AI 에이전트 전용 개발 문서를 갱신한다. 이 문서 갱신까지 끝나야 1회 개발 사이클이 종료된다.
+- `planning` 보고서를 사용자에게 전달하고 사용자의 반응까지 받은 뒤, `user-docs` 는 사용자용 문서를 갱신하고 `ai-docs` 는 AI 에이전트 전용 개발 문서를 갱신한다. 그 뒤 `cycle-report` 가 사이클 보고서 artifact 를 생성하고, `orchestra` 가 artifact readback 뒤 frontend report server 를 실행/재사용해 해당 cycle URL 을 브라우저로 열어야 1회 개발 사이클이 종료된다.
 - Codex 환경에서 실제 sub-agent 생성 도구가 제공되면, `orchestra` 는 자연어 역할 흉내로 대체하지 말고 반드시 `spawn_agent` 도구로 서브 에이전트를 생성한다.
 - 서브 에이전트를 생성할 때는 사용 가능한 모델 중 가장 최신의 프론티어급 모델을 기본으로 선택한다. 2026-05-24 현재 기준 최고 품질 기본값은 `gpt-5.5` 와 reasoning effort `xhigh` 다.
 - `orchestra` 는 서브 에이전트 생성 때 역할 설명과 세부 주의사항을 길게 반복하지 않는다. 역할명, 먼저 읽을 문서 경로, 현재 작업 입력, `Context Report` 요구만 짧게 전달하고, 세부 역할 규칙은 각 역할 문서가 담당한다.
@@ -196,11 +199,21 @@ starter.md 읽어.
 24. `orchestra` 는 `planning` 보고서를 사용자에게 전달하고, 사용자의 반응을 받는다.
 25. `user-docs` 서브 에이전트는 1회 사이클 전체 요약, `planning` 보고서, 사용자 반응, 실제 변경된 코드와 확인된 결과만 기준으로 사용자용 문서와 기록을 갱신한다.
 26. `ai-docs` 서브 에이전트는 1회 사이클 전체 요약, 역할별 산출물, 문제점 리스트, 근본 원인 분석, 사용자 반응, 다음 사이클 인계 정보를 기준으로 AI 에이전트 전용 문서를 갱신한다.
-27. `user-docs` 와 `ai-docs` 갱신이 모두 끝나야 1회 개발 사이클이 종료된다.
-28. 국소 조사나 일회성 보조 작업이 필요할 때만 추가로 `ephemeral` 서브 에이전트를 실행한다.
-29. 서브 에이전트에는 역할명과 먼저 읽을 문서 경로만 짧게 부여한다.
-30. 모든 서브 에이전트는 지정된 경로를 직접 읽고 자기 역할 문서의 세부 지침을 스스로 숙지한 뒤 자기 역할 일만 수행하게 한다.
-31. 최상위 `orchestra` 는 서브 에이전트의 반환 요약과 `Context Report` 를 바탕으로 다음 순서, 종료/재생성 여부, 미결 사항을 조율한다.
+27. `user-docs` 와 `ai-docs` 갱신이 끝나면 close candidate 로만 취급하고, 아직 1회 개발 사이클 완료라고 말하지 않는다.
+28. `cycle-report` 서브 에이전트는 성공, 실패, 중단, blocked 를 포함한 현재 사이클의 HTML/JSON/raw/audit/context artifact 를 생성한다.
+29. `orchestra` 는 `cycle-report` artifact 를 readback 해 파일 목록, audit 상태, `report.json` 필수 키, 코드 변경 시 `code_changes` 누락 여부를 확인한다.
+30. `orchestra` 는 readback 직후 frontend report server 를 자동 실행하거나 같은 host/port 의 기존 서버를 재사용하고, 해당 cycle report URL 을 브라우저로 자동 오픈한다.
+31. report server 는 artifact viewer 이며 trace DB 에서 fallback 보고서를 생성하지 않는다.
+32. report server 지정 포트가 다른 프로세스에 점유되어 있으면 임의 포트 fallback 없이 fail-closed 로 실패를 보고한다.
+33. `cycle-report` artifact 생성, readback, report server URL 확인이 끝나야 1회 개발 사이클이 종료된다.
+34. 국소 조사나 일회성 보조 작업이 필요할 때만 추가로 `ephemeral` 서브 에이전트를 실행한다.
+35. 서브 에이전트에는 역할명과 먼저 읽을 문서 경로만 짧게 부여한다.
+36. 모든 서브 에이전트는 지정된 경로를 직접 읽고 자기 역할 문서의 세부 지침을 스스로 숙지한 뒤 자기 역할 일만 수행하게 한다.
+37. 최상위 `orchestra` 는 서브 에이전트의 반환 요약과 `Context Report` 를 바탕으로 다음 순서, 종료/재생성 여부, 미결 사항을 조율한다.
+
+위 순서는 유지한다.
+`orchestra` 는 각 dispatch 전, return 후, 반환 검수 후, 테스트 요약 수신 시점에 `development_trace` 원장과 필요한 `thinking_from_main_oche_cycle_*.md` trace/export/mirror 를 반드시 남긴다.
+이 기록은 개발 루프 단계를 추가하거나 대체하지 않는다.
 
 기본 부트스트랩에서 가능한 전체 역할 구성은 아래와 같다.
 
@@ -212,21 +225,24 @@ starter.md 읽어.
 - 개발 업무 기본 서브 에이전트: `analysis`
 - 개발 업무 기본 서브 에이전트: `user-docs`
 - 개발 업무 기본 서브 에이전트: `ai-docs`
+- 사이클 종료 필수 서브 에이전트: `cycle-report`
 - 필요 시 실행하는 서브 에이전트: `ephemeral`
 
-즉 한 프로젝트 부트스트랩 작업은 필요하면 `orchestra` 를 포함해 최대 아홉 역할 에이전트로 진행한다.
+즉 한 프로젝트 부트스트랩 작업은 필요하면 `orchestra` 를 포함해 최대 열 역할 에이전트로 진행한다.
 개발 업무에서는 위 7개 기본 서브 에이전트를 먼저 준비하고, `ephemeral` 은 실제 국소 조사가 필요할 때만 추가한다.
+`cycle-report` 는 개발 구현 루프를 대체하지 않고 close hook 에서만 필수 실행한다.
 서브 에이전트 실행은 역할별로 맡길 실제 작업, 입력, 산출물이 있을 때 진행한다.
 
 서브 에이전트 생성 도구 사용 규칙은 아래와 같다.
 
 1. Codex 런타임에 `spawn_agent` 도구가 있으면 서브 에이전트는 반드시 그 도구로 생성한다.
-2. 단순히 프롬프트 안에서 "너는 planning 역할이다" 라고 말하며 같은 에이전트가 역할을 흉내 내는 방식은 실제 `spawn_agent` 를 사용할 수 없을 때만 허용한다.
-3. `spawn_agent` 호출 시 `message` 에는 역할명, 먼저 읽을 역할 문서 경로, 현재 작업 입력, 기대 산출물, `Context Report` 요구를 넣는다.
-4. 현재 대화 맥락이 작업 성공에 필요하면 `fork_context: true` 로 생성한다.
-5. 구현이나 파일 수정 책임이 있는 `codegen`, 하네스 보강이나 검수 수정이 필요한 `review` 는 `agent_type: worker` 로 생성한다.
-6. 코드베이스에 대한 좁은 읽기 전용 질문을 맡기는 보조 조사는 `agent_type: explorer` 로 생성할 수 있다.
-7. `planning`, `analysis`, `test`, `user-docs`, `ai-docs`, `ephemeral` 은 작업 성격에 따라 기본 에이전트로 생성하되, 파일 수정 책임이 명확하면 `worker` 로 생성할 수 있다.
+2. 단순히 프롬프트 안에서 "너는 planning 역할이다" 라고 말하며 같은 에이전트가 역할을 흉내 내는 방식은 개발 업무의 sub-agent 대체 수단으로 허용하지 않는다.
+3. 실제 `spawn_agent` 를 사용할 수 없거나 상위 런타임 정책이 생성을 막으면, `orchestra` 는 필요한 승인, 도구 노출, 운영 문서 수정 지점을 보고하고 중단한다.
+4. `spawn_agent` 호출 시 `message` 에는 역할명, 먼저 읽을 역할 문서 경로, 현재 작업 입력, 기대 산출물, `Context Report` 요구를 넣는다.
+5. 현재 대화 맥락이 작업 성공에 필요하면 `fork_context: true` 로 생성한다.
+6. 구현이나 파일 수정 책임이 있는 `codegen`, 하네스 보강이나 검수 수정이 필요한 `review` 는 `agent_type: worker` 로 생성한다.
+7. 코드베이스에 대한 좁은 읽기 전용 질문을 맡기는 보조 조사는 `agent_type: explorer` 로 생성할 수 있다.
+8. `planning`, `analysis`, `test`, `user-docs`, `ai-docs`, `cycle-report`, `ephemeral` 은 작업 성격에 따라 기본 에이전트로 생성하되, 파일 수정 책임이 명확하면 `worker` 로 생성할 수 있다.
 
 서브 에이전트 모델 선택 규칙은 아래와 같다.
 
@@ -269,17 +285,21 @@ ender.md 읽어 세션 종료할게
 3. `ender.md` 를 세션 종료 규약으로 읽고 적용한다.
 4. `ender.md` 의 규칙대로 종료 유형을 `normal-cycle-close` 또는 `interrupted-handoff-close` 로 먼저 분류한다.
 5. 정상 사이클 종료면 `user-docs` 와 `ai-docs` 가 각자의 정상 문서 갱신을 수행한다.
-6. 중간 중단 인계 종료면 `user-docs` 와 `ai-docs` 가 모든 역할을 대신 문서화하지 않고, 각 역할이 자기 `docs/agent/<role>/handoff/latest.md` 만 직접 남긴다.
-7. `ender.md` 안에서도 현재 역할에 해당하는 절차만 수행한다.
-8. 종료 정리 외의 새 범위 확장 작업은 시작하지 않는다.
-9. 역할별 허용 문서 범위 안에서만 마지막 문서 정리와 압축을 수행한다.
+6. 성공, 실패, 중단, blocked 모두에서 `orchestra` 는 종료 시점에 `cycle-report` 를 dispatch 해 사이클 보고서 artifact 를 만들게 한다.
+7. `cycle-report` artifact readback 뒤에는 frontend report server 를 실행/재사용하고 해당 cycle URL 을 브라우저로 자동 오픈한다.
+8. report server 포트 충돌이나 artifact viewer 실패가 있으면 임의 포트 fallback 또는 trace DB fallback 보고서 생성 없이 실패로 보고한다.
+9. 중간 중단 인계 종료면 `user-docs` 와 `ai-docs` 가 모든 역할을 대신 문서화하지 않고, 각 역할이 자기 `docs/agent/<role>/handoff/latest.md` 만 직접 남긴다.
+10. `ender.md` 안에서도 현재 역할에 해당하는 절차만 수행한다.
+11. 종료 정리 외의 새 범위 확장 작업은 시작하지 않는다.
+12. 역할별 허용 문서 범위 안에서만 마지막 문서 정리와 압축을 수행한다.
+13. `cycle-report` 실패 시 `orchestra` 는 직접 fallback 보고서를 쓰지 않고 실패 자체를 trace 에 남겨 사용자에게 보고한다.
 
 즉 사용자가 `"세션 종료할게"` 라고만 말해도,
 이 문서를 이미 읽은 세션은 그것을 **종료 프로토콜 실행 명령**으로 이해해야 한다.
 
 ## 3. 표준 역할명
 
-표준 역할은 정확히 아홉 개다.
+표준 역할은 정확히 열 개다.
 
 - `orchestra`
 - `analysis`
@@ -288,6 +308,7 @@ ender.md 읽어 세션 종료할게
 - `test`
 - `planning`
 - `ai-docs`
+- `cycle-report`
 - `ephemeral`
 - `user-docs`
 
@@ -300,11 +321,19 @@ ender.md 읽어 세션 종료할게
 - `test`: 테스터, 테스트, 테스트용, 검증 실행, 재테스트, test-runner, verifier, validation
 - `planning`: 플래너, 기획, 기획자, planner, pm, requirements
 - `ai-docs`: AI 문서, AI 문서화, 에이전트 문서, 에이전트 문서화, 개발 시스템 문서, 문서 체계 감사, documentation audit, docs architecture audit, ai documentation, agent-docs
+- `cycle-report`: 사이클 보고서, 종료 보고서, cycle report, cycle-report, close report, development cycle report, cycle close artifact
 - `ephemeral`: 임시, 임시 세션, 임시 테스트포스, 서브, 서브 에이전트, subagent, temporary, scout
 - `user-docs`: 문서 기록 및 업데이터, 문서 업데이터, 사용자 문서, 사용자 문서화, 사용자 문서 작업자, 문서 작업자, human-docs, doc-writer, user documentation
 
-명시 역할 세션에서 역할이 이 아홉 개 중 하나로 정규화되지 않으면 진행하지 않는다.
+명시 역할 세션에서 역할이 이 열 개 중 하나로 정규화되지 않으면 진행하지 않는다.
 역할을 명시하지 않은 기본 부트스트랩 시작은 예외이며, 이 경우 `orchestra` 로 시작한다.
+
+프로젝트별 전문 역할은 표준 열 역할의 고정 루프와 cycle close hook 을 대체하지 않는다.
+현재 전문 역할은 아래와 같다.
+
+- `dev-console`: `development_trace` 기반 로컬 HTML 개발 참여 콘솔, report JSON, 사용자 입력 큐 담당
+
+`dev-console` 은 사용자가 개발 사이클을 HTML 화면에서 보고 승인/수정/질문을 남기는 기능을 구현하거나 관리할 때만 `orchestra` 가 배정한다.
 
 ## 4. 역할별 즉시 라우팅 규칙
 
@@ -313,6 +342,7 @@ ender.md 읽어 세션 종료할게
 `orchestra` 가 생성한 서브 에이전트는 `starter.md` 를 다시 읽지 않는다.
 서브 에이전트는 `orchestra` 가 알려준 자기 역할 문서 `docs/agent/<role>/README.md` 만 먼저 읽고, 세부 역할 지침은 그 문서에서 가져간다.
 `user-docs` 서브 에이전트는 `docs/agent/user-docs/README.md` 를 먼저 읽은 뒤 정상 사용자 문서 작업일 때 `README.md` 또는 `docs/human/` 의 해당 문서로 이동한다. 중간 중단 인계 종료에서는 사용자 문서로 이동하지 않고 자기 handoff 만 남긴다.
+`cycle-report` 서브 에이전트는 `docs/agent/cycle-report/README.md` 를 먼저 읽은 뒤 `orchestra` 가 전달한 context bundle 만 기준으로 종료 artifact 를 만든다.
 
 ### `orchestra`
 
@@ -320,17 +350,19 @@ ender.md 읽어 세션 종료할게
 - 역할 시작 문서: `docs/agent/orchestra/README.md`
 - 필요 시 읽기 전용 개요 문서: `README.md`
 - 문서 작업 허용 범위: `docs/agent/orchestra/`
-- 문서 작업 금지 범위: `docs/agent/analysis/`, `docs/agent/codegen/`, `docs/agent/review/`, `docs/agent/test/`, `docs/agent/planning/`, `docs/agent/ai-docs/`, `docs/agent/ephemeral/`, `docs/agent/user-docs/`, `docs/human/`
+- 문서 작업 금지 범위: `docs/agent/analysis/`, `docs/agent/codegen/`, `docs/agent/review/`, `docs/agent/test/`, `docs/agent/planning/`, `docs/agent/ai-docs/`, `docs/agent/ephemeral/`, `docs/agent/user-docs/`, `docs/agent/cycle-report/`, `docs/human/`
 
 이 역할은 최상위 메인 세션의 기본 역할이다.
 사용자와 직접 대화하고, 현재 상황을 사용자와 함께 파악하고, 필요한 서브 에이전트를 생성/관리/종료/재생성한다.
 개발 업무에서는 절대 고정 루프에 따라 7개 기본 서브 에이전트 산출물을 다음 역할에 전달하고, 계획과 최종 보고서는 `planning` 서브 에이전트에 맡긴다.
+개발 운영 기록에서는 `development_trace` 원장과 `thinking_from_main_oche_cycle_*.md` trace/export/mirror 의 책임 주체이며, 이 기록을 `user-docs` 나 `ai-docs` 에 대신 쓰게 하지 않는다.
+사이클 종료 시점에는 `cycle-report` 를 dispatch 하며, 보고서 artifact 생성 전에는 사이클 완료라고 말하지 않는다.
 
 ### `analysis`
 
 - 서브 에이전트 시작 문서: `docs/agent/analysis/README.md`
 - 문서 작업 허용 범위: `docs/agent/analysis/`
-- 문서 작업 금지 범위: `docs/agent/codegen/`, `docs/agent/review/`, `docs/agent/test/`, `docs/agent/planning/`, `docs/agent/orchestra/`, `docs/agent/ai-docs/`, `docs/agent/ephemeral/`, `docs/agent/user-docs/`, `docs/human/`
+- 문서 작업 금지 범위: `docs/agent/codegen/`, `docs/agent/review/`, `docs/agent/test/`, `docs/agent/planning/`, `docs/agent/orchestra/`, `docs/agent/ai-docs/`, `docs/agent/ephemeral/`, `docs/agent/user-docs/`, `docs/agent/cycle-report/`, `docs/human/`
 
 이 역할은 테스트 문제점 리스트를 읽기 전용으로 분석하고 근본 원인을 정리한다.
 개발 업무 절대 고정 루프에서는 첫 테스트 실패 후와 두 번째 테스트 실패 후에만 실행된다.
@@ -356,7 +388,7 @@ ender.md 읽어 세션 종료할게
 
 - 서브 에이전트 시작 문서: `docs/agent/review/README.md`
 - 문서 작업 허용 범위: `docs/agent/review/`
-- 문서 작업 금지 범위: `docs/agent/analysis/`, `docs/agent/codegen/`, `docs/agent/test/`, `docs/agent/planning/`, `docs/agent/orchestra/`, `docs/agent/ai-docs/`, `docs/agent/ephemeral/`, `docs/agent/user-docs/`, `docs/human/`
+- 문서 작업 금지 범위: `docs/agent/analysis/`, `docs/agent/codegen/`, `docs/agent/test/`, `docs/agent/planning/`, `docs/agent/orchestra/`, `docs/agent/ai-docs/`, `docs/agent/ephemeral/`, `docs/agent/user-docs/`, `docs/agent/cycle-report/`, `docs/human/`
 
 이 역할은 자기 수정/검수 기록을 스스로 남겨야 한다.
 
@@ -364,7 +396,7 @@ ender.md 읽어 세션 종료할게
 
 - 서브 에이전트 시작 문서: `docs/agent/test/README.md`
 - 문서 작업 허용 범위: `docs/agent/test/`
-- 문서 작업 금지 범위: `docs/agent/analysis/`, `docs/agent/codegen/`, `docs/agent/review/`, `docs/agent/planning/`, `docs/agent/orchestra/`, `docs/agent/ai-docs/`, `docs/agent/ephemeral/`, `docs/agent/user-docs/`, `docs/human/`
+- 문서 작업 금지 범위: `docs/agent/analysis/`, `docs/agent/codegen/`, `docs/agent/review/`, `docs/agent/planning/`, `docs/agent/orchestra/`, `docs/agent/ai-docs/`, `docs/agent/ephemeral/`, `docs/agent/user-docs/`, `docs/agent/cycle-report/`, `docs/human/`
 
 이 역할은 검수 이후 하네스와 명령 기반 테스트를 실행한다.
 테스트 실패가 있으면 직접 구현하거나 원인을 확정하지 않고 실패 명령, 핵심 오류, 재현 방법, 문제점 리스트를 `orchestra` 에 반환한다.
@@ -375,7 +407,7 @@ ender.md 읽어 세션 종료할게
 
 - 서브 에이전트 시작 문서: `docs/agent/planning/README.md`
 - 문서 작업 허용 범위: `docs/agent/planning/`
-- 문서 작업 금지 범위: `docs/agent/analysis/`, `docs/agent/codegen/`, `docs/agent/review/`, `docs/agent/test/`, `docs/agent/orchestra/`, `docs/agent/ai-docs/`, `docs/agent/ephemeral/`, `docs/agent/user-docs/`, `docs/human/`
+- 문서 작업 금지 범위: `docs/agent/analysis/`, `docs/agent/codegen/`, `docs/agent/review/`, `docs/agent/test/`, `docs/agent/orchestra/`, `docs/agent/ai-docs/`, `docs/agent/ephemeral/`, `docs/agent/user-docs/`, `docs/agent/cycle-report/`, `docs/human/`
 
 이 역할은 `orchestra` 가 넘긴 사용자 의도, 구현 목표, 제약 조건을 바탕으로 초기 계획 초안, 범위, 성공 기준, 미결 사항을 정리한다.
 `planning` 은 최상위 조율자가 아니라 반드시 서브 에이전트로 실행되는 계획 담당자다.
@@ -385,7 +417,7 @@ ender.md 읽어 세션 종료할게
 
 - 서브 에이전트 시작 문서: `docs/agent/ephemeral/README.md`
 - 문서 작업 허용 범위: `docs/agent/ephemeral/` 안에서 자신에게 배정된 세션 폴더
-- 문서 작업 금지 범위: `docs/agent/analysis/`, `docs/agent/codegen/`, `docs/agent/review/`, `docs/agent/test/`, `docs/agent/planning/`, `docs/agent/orchestra/`, `docs/agent/ai-docs/`, `docs/agent/user-docs/`, `docs/human/`
+- 문서 작업 금지 범위: `docs/agent/analysis/`, `docs/agent/codegen/`, `docs/agent/review/`, `docs/agent/test/`, `docs/agent/planning/`, `docs/agent/orchestra/`, `docs/agent/ai-docs/`, `docs/agent/user-docs/`, `docs/agent/cycle-report/`, `docs/human/`
 
 이 역할은 자기 임무, 수행한 일, 남은 일, 종료 조건을 스스로 문서화해야 한다.
 
@@ -398,6 +430,7 @@ ender.md 읽어 세션 종료할게
 
 이 역할은 AI 에이전트들이 개발을 위해 참조해야 하는 내부 개발 문서 시스템을 작성하고 관리한다.
 사용자용 자연어 설명 문서는 작성하지 않고, `user-docs` 와 독립적으로 AI 전용 문서만 갱신한다.
+`development_trace` 원장이나 `thinking_from_main_oche_cycle_*.md` 를 복제하지 않고, 다음 AI 에이전트가 이어받는 데 필요한 제약과 결정만 압축한다.
 
 ### `user-docs`
 
@@ -410,7 +443,37 @@ ender.md 읽어 세션 종료할게
 기본 작업 공간은 `docs/human/user-docs/` 이지만, 프로젝트 주제 주입과 공개 사용자 문서 갱신에서는 `README.md` 와 `docs/human/` 일반 문서도 관리한다.
 `ender.md` 가 `interrupted-handoff-close` 로 분류한 경우에는 사용자 문서를 갱신하지 않고 자기 인계만 `docs/agent/user-docs/handoff/latest.md` 에 남긴다.
 이 역할이 쓰는 문서는 **사용자와 개발자(사람)가 읽는 설명 문서**이지, 다른 AI 역할이 이어받기 위한 내부 작업 문서가 아니다.
+`development_trace` 원장이나 `thinking_from_main_oche_cycle_*.md` 를 복제하지 않고, 사용자가 이해해야 할 변경 의미와 현재 상태만 설명한다.
 이 역할은 생성형 모델의 환각 위험을 항상 전제로 하고, **실제로 존재하는 코드와 문서에 근거한 사실만** 문서화해야 한다.
+
+### `cycle-report`
+
+- 서브 에이전트 시작 문서: `docs/agent/cycle-report/README.md`
+- 템플릿: `docs/agent/cycle-report/templates/`
+- 산출물 작성 범위: `.xavi/reports/development_cycles/<cycle_id>/`, `.xavi/reports/development_cycles/latest.json`
+- 문서 작업 금지 범위: `docs/human/`, `docs/agent/` 아래 다른 역할 폴더
+
+이 역할은 성공, 실패, 중단, blocked 를 포함한 모든 작업 사이클 close candidate 직후 실행되는 필수 보고서 artifact 담당자다.
+사용자 문서는 `user-docs`, 다음 AI 인계는 `ai-docs`, 사실 기반 HTML/JSON/raw/audit/context artifact 는 `cycle-report` 가 맡는다.
+보고서 목적은 사용자가 각 역할군이 실제로 무엇을 지시받았고 무엇을 했는지 브라우저에서 시각적으로 확인하게 하는 것이다.
+`cycle-report` 는 polling 으로 종료를 추정하지 않고, `orchestra` 의 명시 dispatch 로만 실행된다.
+보고서 위치는 `.xavi/reports/development_cycles/<cycle_id>/{index.html,report.json,raw.json,audit.json,context.md}` 와 `.xavi/reports/development_cycles/latest.json` 이다.
+코드 생성, 수정, 삭제가 있었으면 `report.json.code_changes` 에 파일명, 언어, 변경 종류, 모든 diff hunk, 변경 라인, `summary_ko`, `explanations[].text_ko` 를 기록한다. 새 파일은 전체 신규 내용을 added hunk 로 보여주고, 대형/바이너리/민감 가능 파일은 `audit.json` 에 제외 이유를 남긴다.
+한국어 설명은 report layer annotation 이며, 소스 코드에 설명용 한국어 주석을 강제로 삽입하지 않는다.
+`cycle-report` 실패 시 `orchestra` 는 직접 fallback 보고서를 쓰지 않고 실패 자체를 trace 에 남겨 사용자에게 보고한다.
+
+### `dev-console`
+
+- 전문 역할 시작 문서: `docs/agent/dev-console/README.md`
+- 문서 작업 허용 범위: `docs/agent/dev-console/README.md`
+- 기본 코드 작업 범위: `apps/xavi-dev-console/`
+- 필요 시 허용 가능한 코드 범위: `development_trace` report projection 에 필요한 `crates/xavi-application/`, `crates/xavi-domain/`, `crates/xavi-infrastructure/`, 검증용 `crates/xavi-harness/`
+- 문서 작업 금지 범위: 다른 역할 문서, `docs/human/`
+
+이 전문 역할은 `development_trace` 원장을 source of truth 로 두고, 로컬 HTML/JSON 개발 참여 콘솔을 만든다.
+HTML 입력은 Codex 세션을 직접 조종한다고 표현하지 않고, append-only trace 또는 pending input queue 로 저장해 `orchestra` 가 readback 할 수 있게 한다.
+기본 서버는 `127.0.0.1` 에 바인딩하고, 1차 MVP 는 static HTML/CSS/vanilla JS 로 유지한다.
+cycle close 뒤 report server 로 실행될 때는 `.xavi/reports/development_cycles/<cycle_id>/` artifact 를 보여주는 viewer 로만 동작한다. 누락된 `cycle-report` 를 trace DB 에서 fallback 생성하지 않고, 지정 포트가 다른 프로세스에 점유되어 있으면 임의 포트 fallback 없이 실패한다.
 
 ## 5. 역할 경계 규칙
 
@@ -533,13 +596,57 @@ Context Report
 역할별 적용:
 
 - `codegen`: 문서 작업 금지, 이 규칙의 문서 갱신 의무 대상이 아님. 단, 중간 중단 인계 종료에서는 `docs/agent/codegen/handoff/latest.md` 만 예외
+- `orchestra`: `development_trace` 원장과 `thinking_from_main_oche_cycle_*.md` trace/export/mirror 의 책임 주체. dispatch 전, return 후, 반환 검수 후, 테스트 요약 수신 시점의 운영 기록만 남기고 이를 `user-docs` 나 `ai-docs` 에 대신 쓰게 하지 않음
 - `analysis`: 테스트 문제점의 근본 원인, 수정 후보, 확인 근거만 유지하고 불필요한 임시 탐색 기록은 정리
 - `review`: 검수 내역, 하네스 보강 내역, 남은 이슈만 유지하고 불필요한 과거 로그는 정리
 - `test`: 실행 명령, 결과, 문제점 리스트, 재테스트 여부만 유지하고 장황한 로그는 정리
 - `planning`: 결정, 미결 사항, 핵심 대화 요약만 유지하고 불필요한 대화 기록은 정리
 - `ephemeral`: 임무, 수행 내용, 남은 작업, 반환 요약만 유지하고 불필요한 임시 탐색 기록은 정리
-- `ai-docs`: AI 에이전트가 다음 개발 작업을 이어가기 위한 역할 문서, 제약, 문제 인계만 유지
-- `user-docs`: 사용자에게 유의미한 설명만 유지하고 중복 보고서나 오래된 설명은 정리
+- `ai-docs`: AI 에이전트가 다음 개발 작업을 이어가기 위한 역할 문서, 제약, 문제 인계만 유지하고 DB 원장이나 orchestra trace 를 복제하지 않음
+- `user-docs`: 사용자에게 유의미한 설명만 유지하고 중복 보고서나 오래된 설명은 정리하되 DB 원장이나 orchestra trace 를 복제하지 않음
+- `cycle-report`: 해당 사이클의 HTML/JSON/raw/audit/context artifact 만 생성하고 사용자 문서나 AI 인계 문서를 대신 작성하지 않음
+
+### 운영 기록 산출물 구분
+
+개발 기록물은 아래 다섯 종류를 섞지 않는다.
+문서 규칙 자체가 런타임 차단 장치는 아니므로, 역할 위반이나 허용 범위 초과는 `development_trace` 와 `orchestra` trace/export/mirror 에 즉시 남기고 같은 1회 작업 사이클 안에서 검수한다.
+
+1. `development_trace` SQLite DB: `.xavi/development_trace.sqlite3` 기반 append-only 원장이다. 사용자 질의, `orchestra` 판단, agent dispatch/return, 파일/테스트 요약, 프로젝트 지식 노트를 저장/조회/export 하는 canonical record 로 취급한다.
+2. `thinking_from_main_oche_cycle_*.md`: 한 작업 사이클 동안 사람이 읽기 쉽게 남기는 `orchestra` trace/export/mirror 다. DB를 대체하지 않고, `user-docs` 나 `ai-docs` 도 아니며, 숨겨진 사고 전문이나 raw chain-of-thought 저장소로 설명하지 않는다. 검수 가능한 외부화된 판단, 실제 지시, 반환 검토, correction event 만 남긴다.
+3. `user-docs`: 사용자가 변경 의미, 사용법, 현재 상태를 이해하기 위한 사람용 문서다. `development_trace` 원장이나 `thinking_from_main_oche_cycle_*.md` 를 복제하지 않고, 사용자에게 의미 있는 결과와 상태만 설명한다.
+4. `ai-docs`: 다음 AI 에이전트가 이어받기 위한 내부 인계, 제약, 결정, 반복 문제 문서다. `development_trace` 원장이나 `thinking_from_main_oche_cycle_*.md` 를 복제하지 않고, 다음 작업에 필요한 운영 규칙과 인계 정보만 압축한다.
+5. `cycle-report`: `.xavi/reports/development_cycles/<cycle_id>/` 아래의 사이클 사실 artifact 다. HTML/JSON/raw/audit/context 를 만들며, 종료 상태가 실패/중단/blocked 여도 반드시 그 상태와 누락을 그대로 보여준다.
+
+### 원문 evidence 즉시 append 계약
+
+`development_trace` 는 요약 원장이 아니라 원문 evidence 의 source of truth 도 함께 맡는다.
+작업 cycle 중 아래 원문 이벤트는 발생 직후 trace DB 에 append 해야 하며, 나중에 `cycle-report` 가 요약으로 복원하거나 재생성하면 안 된다.
+
+이 계약에서 "자동 append" 는 두 층을 분리해서 쓴다.
+
+- `code-level automatic`: `apps/xavi-dev-console` 이나 `xavi-bootstrap trace append` CLI 내부 입력 저장 경로가 호출되었을 때 repo 코드가 원장을 append 하는 범위다.
+- `orchestra-protocol automatic`: 최상위 `orchestra` 가 사용자 프롬프트, `spawn_agent` 직전, completion 직후마다 절차상 반드시 append 명령을 실행해야 한다는 운영 의무다.
+
+Rust repo 코드는 Codex `spawn_agent` tool invocation 경계를 스스로 자동 interception 하지 못한다.
+Codex runtime transcript API 나 별도 런타임 연결이 이 경계를 repo 코드로 전달하지 않는 환경에서는, `orchestra` 가 `spawn_agent` 호출 직전에 `xavi-bootstrap trace append` 또는 동등 trace append 명령을 먼저 실행하고 성공을 확인해야 한다.
+`spawn_agent` completion 직후 result 원문도 같은 방식으로 append 해야 한다.
+append 가 실패하면 해당 `spawn_agent` 를 진행하지 않거나 cycle 을 fail-closed 로 표시해야 하며, 요약이나 화면 문자열로 원문 evidence 를 대체하면 안 된다.
+따라서 "DB에 저장된다" 는 말은 요구 metadata 를 갖춘 원문 append event 가 실제로 있을 때만 성립한다.
+
+1. 사용자 프롬프트 수신 직후 `user_request_verbatim` event 를 저장한다.
+2. 실제 sub-agent spawn 직전 `agent_dispatch.prompt_verbatim` 을 저장한다.
+3. sub-agent completion 직후 런타임이 result 원문을 제공하면 completion result 원문 event 를 저장한다.
+4. 모든 원문 event 에는 `source_ref`, `hash_sha256`, `timestamp`, `order`, `role`, `agent_id` 를 넣는다. `agent_id` 가 아직 없거나 해당 없음이면 그 사유를 같은 event metadata 에 남긴다.
+5. Codex runtime transcript API 를 repo 코드가 직접 읽을 수 없으면 `orchestra` 가 spawn 직전과 completion 직후 받은 원문 bundle 을 직접 trace DB 에 append 한다.
+6. 이 bundle 도 없으면 원문 없음으로 표시하고, `cycle-report` 나 dev-console 이 기존 요약, 화면 문구, 과거 report 를 원문처럼 복원하거나 재생성하지 않는다.
+
+파생 데이터는 반드시 원문과 이름으로 분리한다.
+field 이름과 UI 라벨에는 `derived`, `summary`, `display` 중 하나를 포함해 사용자가 원문 evidence 와 파생 요약을 구분할 수 있게 한다.
+원문 evidence 가 없으면 `audit.missing_evidence[]` 에 항목을 남기고 `audit.status` 를 `fail` 또는 `warn` 으로 설정하며, `evidence_status` 를 `incomplete` 또는 `fail` 로 표시하고, HTML 첫 화면에 경고를 표시한다.
+원문 누락 상태를 성공처럼 보이는 표현으로 완화하거나 숨기면 안 된다.
+
+과거 trace 파일에 남은 실행 방식은 증거 기록이지 현재 운영 정책이 아니다.
+현재 운영 정책은 `AGENTS.md`, `starter.md`, `docs/agent/README.md`, 각 역할 `README.md` 의 최신 규칙을 따른다.
 
 ### 사용자 문서와 내부 AI 문서의 구분
 
@@ -559,6 +666,7 @@ Context Report
 - `docs/agent/ai-docs/`
 - `docs/agent/ephemeral/`
 - `docs/agent/user-docs/`
+- `docs/agent/cycle-report/`
 
 독자:
 
@@ -642,6 +750,7 @@ Context Report
 
 - `user-docs` 는 사람용 문서만 작성한다.
 - `user-docs` 는 내부 AI 작업 문서를 대신 작성하지 않는다.
+- `user-docs` 는 `development_trace` 원장이나 `thinking_from_main_oche_cycle_*.md` 의 내용을 복제하지 않는다.
 - `user-docs` 는 내부 역할 메모를 사용자 문서에 섞어 넣지 않는다.
 - 다른 역할도 `docs/human/user-docs/` 를 자기 작업 메모장처럼 쓰면 안 된다.
 - `user-docs` 는 실제 존재하는 기능과 코드만 문서화한다.
@@ -656,7 +765,21 @@ Context Report
 - `ai-docs` 는 `docs/human/` 을 읽거나 관리하지 않는다.
 - `ai-docs` 는 사용자에게 보여줄 자연어 설명, 개요, 튜토리얼, 보고서를 작성하지 않는다.
 - `ai-docs` 는 역할별 인계, 제약, 반복 문제, 다음 사이클 입력만 `docs/agent/` 와 루트 운영 문서에 반영한다.
+- `ai-docs` 는 `development_trace` 원장이나 `thinking_from_main_oche_cycle_*.md` 의 내용을 복제하지 않는다.
 - 1회 개발 사이클의 마지막에는 `planning` 보고서와 사용자 반응까지 반영해 AI 문서를 갱신한다.
+
+#### `cycle-report` 역할의 특별 규칙
+
+- `cycle-report` 는 사용자 문서나 AI 인계 문서를 작성하지 않는다.
+- `cycle-report` 는 `orchestra` 가 dispatch 한 context bundle 만 기준으로 artifact 를 만든다.
+- `cycle-report` 는 polling, idle 감지, 파일 변경 감시로 종료를 추정하지 않는다.
+- `cycle-report` 는 `.xavi/reports/development_cycles/<cycle_id>/` 아래에 `index.html`, `report.json`, `raw.json`, `audit.json`, `context.md` 를 만들고 `latest.json` 을 갱신한다.
+- 코드 변경이 있었으면 `report.json.code_changes` 에 이번 cycle 의 모든 변경 hunk 와 한국어 설명 annotation 을 포함한다.
+- trace DB/context bundle 에서 받은 `user_request_verbatim`, `agent_dispatch.prompt_verbatim`, completion result 원문 evidence 는 복사/검증만 하고 작성, 복원, 재생성하지 않는다.
+- trace DB 를 읽어 fallback 보고서를 합성하지 않고, 누락 입력과 원문 evidence 누락은 `audit.missing_evidence[]`, `audit.status=fail|warn`, HTML 화면 경고에 드러낸다.
+- 파생 요약과 화면 표시는 `derived`, `summary`, `display` 이름과 UI 라벨을 가져야 하며 원문처럼 표시하면 안 된다.
+- `cycle-report` 는 성공보다 실패/중단/blocked 의 지시, dispatch, return, 실패 지점을 더 엄격히 드러낸다.
+- `cycle-report` 생성 실패는 `orchestra` 가 직접 대체 작성하지 않고 trace 에 실패로 남긴다.
 
 ## 7. 역할별 책임
 
@@ -697,6 +820,7 @@ Context Report
 - 기존 코드 구현
 - 구조에 맞는 리팩터링
 - 포트와 어댑터 구현
+- cycle report 가 모든 코드 변경 hunk 를 보여줄 수 있도록 코드 변경 evidence 반환
 
 하면 안 되는 일:
 
@@ -714,6 +838,8 @@ Context Report
 - 중간 중단 인계 종료에서는 `docs/agent/codegen/handoff/latest.md` 만 예외
 
 이 역할은 컨텍스트를 코드에 집중하기 위해 정상 작업에서는 문서 작업을 하지 않는다.
+단, 코드를 생성, 수정, 삭제했다면 종료 응답에 파일명, 언어, 변경 종류, diff hunk, 변경 라인, `summary_ko`, `explanations[].text_ko` 를 포함한 report layer evidence 를 반환한다.
+이 한국어 설명은 보고서 annotation 이며, 설명 목적만으로 실제 소스 코드에 한국어 주석을 삽입하지 않는다.
 
 검증 규칙:
 
@@ -911,6 +1037,7 @@ Context Report
 - 필요하면 보고서 형태의 새 문서를 `docs/human/user-docs/` 안에 만든다.
 - 같은 내용을 반복 설명하는 오래된 문서는 합치거나 정리한다.
 - 내부 AI 용 TODO, 역할 메모, 세션 반환 기록은 쓰지 않는다.
+- `development_trace` 원장이나 `thinking_from_main_oche_cycle_*.md` 를 복제하지 않는다.
 - 실제 코드와 문서에서 확인한 사실만 쓴다.
 - 코드에 없는 기능이나 동작을 생성해서 쓰지 않는다.
 - 누락 없이 쓰되, 사람이 읽기 어려울 만큼 장황하게 늘어놓지 않는다.
@@ -942,12 +1069,45 @@ Context Report
 - 사용자용 설명 문체가 아니라 역할, 입력, 산출물, 제약, 문제 인계 중심으로 쓴다.
 - 사용자 반응은 다음 작업 제약과 결정으로 필요한 범위만 요약한다.
 - `user-docs` 와 내용을 섞지 않는다.
+- `development_trace` 원장이나 `thinking_from_main_oche_cycle_*.md` 를 복제하지 않는다.
 - 1회 사이클마다 `user-docs` 갱신과 별개로 반드시 갱신한다.
+
+### `cycle-report`
+
+이 역할의 핵심은 1회 작업 사이클의 종료 상태를 사용자가 확인할 수 있는 artifact 로 남기는 것이다.
+보고서의 목적은 역할별 지시와 실제 수행 내용을 시각적으로 대조하게 하는 것이다.
+
+해야 하는 일:
+
+- `orchestra` 가 전달한 context bundle 검증
+- 성공, 실패, 중단, blocked 상태를 그대로 표시
+- 사용자 요청, 정정, 승인, `orchestra` dispatch, 역할 return, `Context Report` 정리
+- 변경 파일, 명령, 검증, 실패 로그, trace export, audit 를 HTML/JSON/raw/context 로 연결
+- 코드 생성/수정/삭제가 있으면 모든 변경 hunk 를 `report.json.code_changes` 와 한국어 annotation 으로 연결
+- `.xavi/reports/development_cycles/latest.json` 포인터 갱신
+
+하면 안 되는 일:
+
+- 사용자 문서 작성
+- AI 인계 문서 작성
+- 제품 코드 수정
+- 누락된 trace 를 추정으로 채우기
+- polling 으로 종료를 추정하기
+- trace DB 에서 fallback 보고서를 합성하기
+- `orchestra` 대신 실패를 숨기거나 성공으로 보정하기
+
+문서화 규칙:
+
+- raw evidence 는 `raw.json` 에 보존하고 요약만 압축한다.
+- 필수 입력 누락은 `audit.json` 과 HTML 에 명시한다.
+- 대형/바이너리/민감 가능 파일 때문에 코드 hunk 를 제외하면 `audit.json` 에 파일과 제외 이유를 명시한다.
+- `index.html` 첫 화면에서 사용자 요청, 종료 상태, 실패 지점, 다음 판단 항목이 보여야 한다.
+- 산출물은 `.xavi/reports/development_cycles/<cycle_id>/` 밖에 쓰지 않는다.
 
 ## 8. 문서화 책임 요약
 
 - `codegen`: 문서화 안 함. 단, 중간 중단 인계 종료에서는 자기 handoff 하나만 예외
-- `orchestra`: 사용자 대화, 서브 에이전트 관리, 반환 검수, 흐름 조율 문서화
+- `orchestra`: 사용자 대화, 서브 에이전트 관리, 반환 검수, 흐름 조율, `development_trace` 원장과 `thinking_from_main_oche_cycle_*.md` trace/export/mirror 문서화
 - `analysis`: 테스트 문제점의 근본 원인, 수정 후보, 확인 근거 문서화
 - `review`: 검수 내역, 하네스 보강 내역, 결과, 남은 일 문서화
 - `test`: 실행 명령, 결과, 문제점 리스트, 재테스트 여부 문서화
@@ -955,6 +1115,7 @@ Context Report
 - `ephemeral`: 임무, 수행 내역, 잔업, 다음 작업 문서화
 - `ai-docs`: AI 에이전트 전용 개발 문서와 인계 정보 문서화
 - `user-docs`: 사용자용 문서와 보고서 문서화
+- `cycle-report`: 사이클 종료 HTML/JSON/raw/audit/context artifact 문서화
 
 즉 `codegen` 을 제외한 모든 역할은 자기 역할의 문서를 스스로 관리해야 한다.
 중간 중단 인계 종료에서는 예외적으로 모든 역할이 자기 `docs/agent/<role>/handoff/latest.md` 를 직접 남기며, 이때 `codegen` 도 자기 handoff 하나만 작성할 수 있다.
@@ -970,6 +1131,7 @@ Context Report
 - `xavi-infrastructure`: 외부 시스템 구현
 - `xavi-harness`: 개발 및 검증 하네스
 - `apps/xavi-bootstrap`: 실행 진입점과 composition root
+- `apps/xavi-dev-console`: `development_trace` 기반 로컬 HTML 개발 참여 콘솔
 
 기본 의존 방향은 아래와 같다.
 
@@ -1006,6 +1168,7 @@ crates/xavi-domain
 - 내부 AI 역할 문서면 `docs/agent` 아래 해당 역할 폴더
 - 사용자 실시간 설명 문서면 `docs/human/user-docs`
 - AI 개발 참조 문서면 `ai-docs` 역할이 `docs/agent` 아래에서 관리
+- 사이클 종료 artifact 면 `cycle-report` 역할이 `.xavi/reports/development_cycles/<cycle_id>/` 아래에서 관리
 
 ## 10. 문서 시스템 구조
 
@@ -1028,7 +1191,9 @@ docs/
     ├── planning/
     ├── ai-docs/
     ├── user-docs/
-    └── ephemeral/
+    ├── cycle-report/
+    ├── ephemeral/
+    └── dev-console/
 ```
 
 ## 11. 개발 방식
@@ -1040,30 +1205,42 @@ docs/
 이 흐름은 예시가 아니며, `orchestra` 는 개발 업무를 이 순서로만 지시해야 한다.
 아직 범용 health-check 부트스트랩 상태에서 사용자가 새 프로젝트 주제를 제공했다면, 아래 일반 개발 흐름으로 바로 들어가지 말고 먼저 `inject_subject_once.md` 의 주제 주입 절차를 적용한다.
 
-1. 최상위 `orchestra` 가 사용자의 목표와 구현 내용을 대화로 파악한다.
-2. 기본 7개 서브 에이전트 `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs` 를 생성하거나 실행 준비한다.
-3. `planning` 에 목표와 구현 내용을 전달해 처음 계획을 받는다.
-4. `orchestra` 는 처음 계획을 사용자에게 보고하고, 사용자의 수정 의견이나 진행 승인을 받는다.
-5. 사용자가 계획 수정을 요구하면 `planning` 에 다시 전달해 계획 개정안을 받는다.
-6. `codegen` 에 승인되었거나 개정된 계획을 전달해 코드를 생성하게 한다.
-7. `review` 가 생성 코드를 검수하고 문제점 리스트를 만든다.
-8. `orchestra` 는 검수자 문제점 리스트를 `codegen` 에 전달해 수정하게 한다.
-9. `test` 가 테스트한다. 문제가 없고 프로그램이 켜지고 목적을 완수하고 종료되면 문제 분석/수정 루프를 건너뛰고 성공 보고를 취합한 뒤 결과 취합 단계로 넘어간다.
-10. 첫 테스트에 문제가 있으면 `test` 문제점 리스트를 `analysis` 에 전달해 근본 원인을 분석하게 한다.
-11. `analysis` 의 근본 원인 분석을 `codegen` 에 전달해 수정하게 한다.
-12. `review` 가 수정된 부분만 확인하고 문제점 리스트를 만든다.
-13. `orchestra` 는 재검수 문제점 리스트를 `codegen` 에 전달해 수정하게 한다.
-14. `test` 가 두 번째 테스트를 실행하고 문제가 있으면 문제점 리스트를 만든다.
-15. 두 번째 테스트 문제점 리스트를 `analysis` 에 전달해 근본 원인을 분석하게 한다.
-16. 두 번째 근본 원인 분석을 `codegen` 에 전달해 수정하게 한다.
-17. `test` 가 세 번째 테스트를 실행한다.
-18. 세 번째 테스트 이후에는 더 이상 코드 개발을 진행하지 않는다.
-19. `orchestra` 는 모든 결과와 현재 상황을 취합해 `planning` 에 전달한다.
-20. `planning` 은 처음 계획 대비 완성도, 미구현, 잘 구현된 부분, 미흡한 부분, 계속 잘 수정되지 않는 에러나 문제점 보고서를 작성한다.
-21. `orchestra` 는 `planning` 보고서를 사용자에게 전달하고, 사용자의 반응을 받는다.
-22. `user-docs` 는 1회 사이클 전체 요약, `planning` 보고서, 사용자 반응, 실제 변경과 확인된 상태를 사용자용 문서로 갱신한다.
-23. `ai-docs` 는 1회 사이클 전체 요약, 역할별 산출물, 문제점, 근본 원인, 사용자 반응, 다음 사이클 인계 정보를 AI 에이전트 전용 문서로 갱신한다.
-24. `user-docs` 와 `ai-docs` 갱신이 모두 끝나야 1회 개발 사이클이 종료된다.
+1. 최상위 `orchestra` 가 사용자 프롬프트 수신 직후 `xavi-bootstrap trace append` 또는 동등 명령으로 `user_request_verbatim` event 를 trace DB 에 append 한다.
+2. 최상위 `orchestra` 가 사용자의 목표와 구현 내용을 대화로 파악한다.
+3. 기본 7개 서브 에이전트 `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs` 를 생성하거나 실행 준비한다.
+4. `planning` spawn 직전 `agent_dispatch.prompt_verbatim` 을 trace DB 에 append 하고 성공을 확인한 뒤, `planning` 에 목표와 구현 내용을 전달해 처음 계획을 받는다.
+5. `planning` completion 직후 result 원문을 저장할 수 있으면 trace DB 에 append 한다. append 실패 시 result 원문 evidence 는 누락으로 표시하고 cycle 을 fail-closed 또는 incomplete 로 다룬다.
+6. `orchestra` 는 처음 계획을 사용자에게 보고하고, 사용자의 수정 의견이나 진행 승인을 받는다.
+7. 사용자가 계획 수정을 요구하면 해당 사용자 프롬프트 원문을 `user_request_verbatim` 으로 append 하고, `planning` dispatch prompt 원문을 append 한 뒤 계획 개정안을 받는다.
+8. `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs`, `cycle-report` 등 모든 이후 역할 dispatch 직전 `agent_dispatch.prompt_verbatim` 을 append 하고 성공을 확인한 뒤 spawn 하며, completion 직후 가능한 result 원문을 append 한다. runtime boundary append 실패는 요약 대체 없이 fail-closed 또는 incomplete evidence 로 처리한다.
+9. `codegen` 에 승인되었거나 개정된 계획을 전달해 코드를 생성하게 한다.
+10. `review` 가 생성 코드를 검수하고 문제점 리스트를 만든다.
+11. `orchestra` 는 검수자 문제점 리스트를 `codegen` 에 전달해 수정하게 한다.
+12. `test` 가 테스트한다. 문제가 없고 프로그램이 켜지고 목적을 완수하고 종료되면 문제 분석/수정 루프를 건너뛰고 성공 보고를 취합한 뒤 결과 취합 단계로 넘어간다.
+13. 첫 테스트에 문제가 있으면 `test` 문제점 리스트를 `analysis` 에 전달해 근본 원인을 분석하게 한다.
+14. `analysis` 의 근본 원인 분석을 `codegen` 에 전달해 수정하게 한다.
+15. `review` 가 수정된 부분만 확인하고 문제점 리스트를 만든다.
+16. `orchestra` 는 재검수 문제점 리스트를 `codegen` 에 전달해 수정하게 한다.
+17. `test` 가 두 번째 테스트를 실행하고 문제가 있으면 문제점 리스트를 만든다.
+18. 두 번째 테스트 문제점 리스트를 `analysis` 에 전달해 근본 원인을 분석하게 한다.
+19. 두 번째 근본 원인 분석을 `codegen` 에 전달해 수정하게 한다.
+20. `test` 가 세 번째 테스트를 실행한다.
+21. 세 번째 테스트 이후에는 더 이상 코드 개발을 진행하지 않는다.
+22. `orchestra` 는 모든 결과와 현재 상황을 취합해 `planning` 에 전달한다.
+23. `planning` 은 처음 계획 대비 완성도, 미구현, 잘 구현된 부분, 미흡한 부분, 계속 잘 수정되지 않는 에러나 문제점 보고서를 작성한다.
+24. `orchestra` 는 `planning` 보고서를 사용자에게 전달하고, 사용자의 반응을 받는다.
+25. `user-docs` 는 1회 사이클 전체 요약, `planning` 보고서, 사용자 반응, 실제 변경과 확인된 상태를 사용자용 문서로 갱신한다.
+26. `ai-docs` 는 1회 사이클 전체 요약, 역할별 산출물, 문제점, 근본 원인, 사용자 반응, 다음 사이클 인계 정보를 AI 에이전트 전용 문서로 갱신한다.
+27. `orchestra` 는 성공, 실패, 중단, blocked 상태와 DB 원문 event readback 을 포함한 필수 context bundle 을 담아 `cycle-report` 를 dispatch 한다.
+28. `cycle-report` 는 DB/context bundle 의 원문 event 를 readback 한 뒤 `.xavi/reports/development_cycles/<cycle_id>/` 아래 HTML/JSON/raw/audit/context artifact 와 `latest.json` 을 생성한다.
+29. 코드 변경이 있었으면 `report.json.code_changes` 에 이번 cycle 의 모든 변경 hunk 와 한국어 report annotation 이 들어갔는지 readback 한다.
+30. `orchestra` 는 `dev-console` open-cycle 또는 설정된 frontend report server 실행/재사용으로 해당 cycle report URL 을 브라우저로 자동 오픈한다.
+31. 지정 포트가 다른 프로세스에 점유되어 있으면 임의 포트 fallback 없이 실패로 보고하고, trace DB fallback 보고서를 생성하지 않는다.
+32. `cycle-report` artifact 생성, readback, report server URL 확인이 끝나야 1회 개발 사이클이 종료된다.
+
+위 순서는 유지한다.
+`orchestra` 는 각 dispatch 전, return 후, 반환 검수 후, 테스트 요약 수신 시점에 `development_trace` 원장과 필요한 `thinking_from_main_oche_cycle_*.md` trace/export/mirror 를 반드시 남긴다.
+이 기록은 개발 루프 단계를 추가하거나 대체하지 않는다.
 
 `review` 와 `test` 관점에서 프로젝트 기능 검증은 반드시 하네스를 우선한다.
 즉 테스트마다 조립 코드를 새로 쓰지 말고, `crates/xavi-harness/` 를 기능별 검증 진입점으로 계속 확장하는 방식으로 진행한다.
@@ -1105,7 +1282,7 @@ cargo xclippy
 3. 범용 health-check 부트스트랩 상태에서 사용자가 새 프로젝트 주제를 말하면, 사용자가 파일명을 몰라도 `inject_subject_once.md` 를 먼저 적용한다.
 4. 이미 주제가 주입된 프로젝트의 개발 업무에서는 기본 7개 서브 에이전트 `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs` 를 사용한다.
 5. 개발 업무 루프는 예시가 아니라 절대 고정 절차이며, `planning` 뒤와 `codegen` 앞에는 사용자 보고/수정 게이트를 둔다. 역할 실행 순서는 `planning` → `codegen` → `review` → `codegen` → `test` → `analysis` → `codegen` → `review` → `codegen` → `test` → `analysis` → `codegen` → `test` → `planning` 보고 순서만 따른다.
-6. 사용자가 `"너는 <role> 역할이야. starter.md 읽어."` 라고 말하면 AI 는 `<role>` 을 아홉 표준 역할명 중 하나로 정규화한다.
+6. 사용자가 `"너는 <role> 역할이야. starter.md 읽어."` 라고 말하면 AI 는 `<role>` 을 열 표준 역할명 중 하나로 정규화한다.
 7. 명시 역할 세션은 이 문서의 역할별 라우팅 규칙에 따라 자기 역할 문서로만 이동한다.
 8. 모든 에이전트는 자기 역할만 수행한다.
 9. `codegen` 이 아니면 자기 역할 문서를 스스로 갱신한다.
@@ -1118,6 +1295,11 @@ cargo xclippy
 - 기본 최상위 부트스트랩 세션은 `orchestra` 이다.
 - 새 프로젝트 주제 입력은 일반 개발 업무보다 먼저 `inject_subject_once.md` 로 판정한다.
 - 개발 업무에서는 `orchestra` 가 `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs` 기본 7개 서브 에이전트를 절대 고정 루프로 운용한다.
+- 모든 사이클 close candidate 에서는 `orchestra` 가 `cycle-report` 를 dispatch 해 HTML/JSON/raw/audit/context artifact 를 만들게 하고, 이 전에는 사이클 완료라고 말하지 않는다.
+- `cycle-report` 는 polling 으로 종료를 추정하지 않으며, 실패해도 `orchestra` 가 직접 fallback 보고서를 쓰지 않는다.
+- `cycle-report` readback 뒤에는 report server 를 실행/재사용하고 해당 cycle URL 을 브라우저로 열어 사용자가 역할별 지시와 실제 수행 내용을 확인하게 한다.
+- report server 는 artifact viewer 이며 trace DB fallback 보고서를 만들지 않고, 포트 충돌 시 임의 포트 fallback 없이 fail-closed 로 실패한다.
+- 코드 변경이 있으면 `report.json.code_changes` 에 모든 변경 hunk 와 한국어 report annotation 을 담고, 제외된 hunk 는 `audit.json` 에 사유를 남긴다.
 - Codex 런타임에 `spawn_agent` 도구가 있으면 서브 에이전트는 자연어 역할 흉내가 아니라 실제 `spawn_agent` 호출로 생성한다.
 - `ephemeral` 은 개발 루프의 기본 역할이 아니며 별도 국소 조사 때만 사용한다.
 - 구현 작업의 기본 모델 정책은 사용 가능한 최신 프론티어급 모델이며, 2026-05-24 현재 기준 최고 품질 기본값은 `gpt-5.5` + `xhigh` 다.
@@ -1128,3 +1310,4 @@ cargo xclippy
 - 세션 재시작 때문에 작업 도중 종료할 때는 `user-docs` 와 `ai-docs` 가 전체를 대신 문서화하지 않고, 각 역할이 자기 handoff 를 직접 남긴다.
 - 사용자용 문서는 `user-docs` 세션만 관리한다.
 - AI 에이전트용 개발 문서는 `ai-docs` 세션만 관리한다.
+- 사이클 사실 artifact 는 `cycle-report` 세션만 관리한다.

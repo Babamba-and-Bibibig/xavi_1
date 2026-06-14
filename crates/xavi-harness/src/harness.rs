@@ -2,9 +2,12 @@
 
 use crate::builder::HarnessBuilder;
 use crate::fixtures::health::HealthFixture;
+use crate::scenarios::development_trace::DevelopmentTraceScenario;
 use crate::scenarios::health::HealthScenario;
+use xavi_application::services::development_trace_service::DevelopmentTraceService;
 use xavi_application::services::health_check_service::HealthCheckService;
 use xavi_domain::health::HealthReport;
+use xavi_infrastructure::development_trace::sqlite_development_trace_store::SqliteDevelopmentTraceStore;
 
 /// Identifies which outer-layer composition style the harness uses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,6 +22,7 @@ pub enum HarnessProfile {
 pub struct TestHarness {
     profile: HarnessProfile,
     health_check_service: HealthCheckService,
+    development_trace_service: DevelopmentTraceService,
 }
 
 impl Default for TestHarness {
@@ -64,12 +68,24 @@ impl TestHarness {
         HealthScenario::new(&self.health_check_service)
     }
 
+    /// Returns the development trace scenario facade.
+    #[must_use]
+    pub fn development_trace(&self) -> DevelopmentTraceScenario<'_> {
+        DevelopmentTraceScenario::new(&self.development_trace_service)
+    }
+
     /// Builds a harness from an already-composed application service.
     #[must_use]
     pub(crate) fn from_service(
         profile: HarnessProfile,
         health_check_service: HealthCheckService,
     ) -> Self {
-        Self { profile, health_check_service }
+        let development_trace_store = SqliteDevelopmentTraceStore::open_in_memory()
+            .expect("in-memory development trace store should initialize");
+        Self {
+            profile,
+            health_check_service,
+            development_trace_service: DevelopmentTraceService::new(development_trace_store),
+        }
     }
 }

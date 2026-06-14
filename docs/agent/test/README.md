@@ -45,13 +45,44 @@
 
 - 테스트 전에는 검수 결과와 실행 대상 명령을 확인한다.
 - 기본 검증은 `cargo check --workspace`, `cargo test --workspace`, 필요한 경우 `cargo clippy --workspace --all-targets -- -D warnings`, `cargo run -p xavi-bootstrap` 순서로 본다.
+- docs-only 작업은 `rg`, diff, readback, `git diff --check` 중심으로 검증하고, 코드 변경이 없으면 Cargo 테스트를 불필요하게 실행하지 않는다.
 - 하네스 테스트가 있으면 하네스 테스트를 우선 실행한다.
 - `test` 역할은 테스트 코드를 작성하거나 제품 코드를 수정하지 않는다.
 - 테스트 코드가 없거나 부족하면 직접 만들지 않고, 누락된 하네스 fixture, double, scenario, assertion, tests 항목을 문제점 리스트로 반환해 `orchestra` 가 `review` 에 보강을 맡기게 한다.
 - 반복 테스트는 기존 `crates/xavi-harness/` 구조와 Cargo 명령을 기준으로 실행한다.
 - 실패하면 실패 명령, 핵심 오류, 재현 방법, 문제점 리스트를 반환한다.
 - 문제점의 근본 원인 판단은 `analysis` 역할에 맡기고, `test` 는 분석을 대신하지 않는다.
+- cycle close 또는 report 검증을 배정받으면 artifact 파일 존재, `report.json` 필수 키, 코드 변경 시 `code_changes` 존재, `audit.json` 누락/제외 사유, report server 고정 포트 동작을 확인한다.
+- 원문 evidence 검증을 배정받으면 `user_request_verbatim`, `agent_dispatch.prompt_verbatim`, 가능한 completion result verbatim event 가 trace DB/context bundle 에 있고, 각 event 에 `source_ref`, `hash_sha256`, `timestamp`, `order`, `role`, `agent_id` 가 있는지 확인한다.
+- v2 trace event 의 `source_ref` 와 `hash_sha256` 가 없는 prompt 를 원문처럼 표시하면 실패로 반환한다.
+- `spawn_agent` 직전 `xavi-bootstrap trace append` 또는 동등 trace append evidence 가 없으면 runtime append evidence 누락으로 기록하고, `evidence_status=incomplete|fail` 인지 확인한다.
+- 원문 evidence 가 없으면 `audit.missing_evidence[]`, `audit.status=fail|warn`, HTML 화면 경고가 있는지 확인한다. 누락 상태를 success 처럼 보이게 표시하면 실패로 반환한다.
+- append 실패 후 summary, derived, display, report 문자열로 대체해 success 처리하면 fail-closed 위반으로 실패 반환한다.
+- `summary`, `derived`, `display` 데이터가 원문 필드처럼 표시되거나 기존 report 를 원문처럼 복원/재생성하는 동작은 성공으로 인정하지 않는다.
+- command evidence 검증을 배정받으면 `command_verbatim`, `result_verbatim`, `output_verbatim` 이 모두 독립 렌더링되는지 확인한다. 첫 non-empty 원문 필드만 표시하거나 다른 필드 값을 복사해 채우는 동작은 실패로 반환한다.
+- report server 검증에서 지정 포트가 다른 프로세스에 점유되어 있으면 임의 포트로 바꾸지 않고 실패로 반환한다.
+- dev-console/report server 는 artifact viewer 로만 검증하며, trace DB 에서 fallback 보고서를 생성하는 동작을 성공으로 인정하지 않는다.
+- cycle alias 검증을 배정받으면 `trace reserve-alias`/`trace resolve-alias` readback,
+  `aliases.json`, canonical `/reports/<cycle_id>/`, by-alias viewer route,
+  malformed/ambiguous/traversal fail-closed 경로를 확인한다.
+- alias 검증에서 malformed `aliases.json` entry 를 조용히 제외하고 나머지를 성공 처리하면 실패로 반환한다.
+- `resolve-alias` 결과의 `cycle_id` 가 현재 cycle 과 다르거나 alias 충돌 뒤 임의 fallback alias 를 만들면 실패로 반환한다.
 - 서브 에이전트로 실행될 때는 사용 가능한 최신 프론티어급 모델을 기본으로 사용한다. 2026-05-22 현재 기준 기본값은 `gpt-5.5` 와 `xhigh` 다.
+
+## Verification Result Template
+
+새 작업 cycle 의 검증 결과는 필요할 때 아래 형식으로 짧게 남긴다.
+초기 부트스트랩 문서에는 특정 과거 cycle id, alias, pass count 를 남기지 않는다.
+
+```text
+## <cycle-id 또는 cycle placeholder>
+
+- scope:
+- commands:
+- result:
+- failures:
+- residual risk:
+```
 
 ## 고정 루프 위치
 

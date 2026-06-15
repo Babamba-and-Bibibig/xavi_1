@@ -3,7 +3,7 @@
 이 디렉터리는 내부 AI 열 기본 역할과 프로젝트별 전문 역할을 위한 문서 시스템 루트다.
 루트 `AGENTS.md` 는 자동 로드 가능한 환경에서 `starter.md` 로 들어오기 전의 짧은 부팅 계약 역할을 한다.
 최상위 `orchestra` 세션은 `starter.md` 를 읽은 뒤 이 파일을 읽고 전체 역할 경로를 확인한다.
-`orchestra` 가 생성한 서브 에이전트는 `starter.md` 를 다시 읽지 않고, 배정된 자기 역할 폴더의 `README.md` 를 바로 읽는다.
+`orchestra` 가 생성한 서브 에이전트는 `starter.md` 를 다시 읽지 않고, 배정된 자기 역할 폴더의 `README.md` 를 첫 문서로 바로 읽는다.
 세션을 마무리할 때는 루트의 `ender.md` 를 현재 역할 기준 종료 규약으로 적용해야 한다.
 `ender.md` 는 정상 사이클 종료와 중간 중단 인계 종료를 먼저 분류한다.
 
@@ -28,9 +28,10 @@
 
 - 최상위 `orchestra` 는 `starter.md` → `docs/agent/README.md` → `docs/agent/orchestra/README.md` 순서로 읽고 자기 역할을 확정한다.
 - 자동 로드 환경에서 `AGENTS.md` 를 먼저 읽었더라도, 최상위 `orchestra` 는 반드시 위 순서로 상세 규칙을 이어서 확인한다.
-- 서브 에이전트는 `starter.md` 와 이 공통 인덱스를 반복해서 읽지 않고, `docs/agent/<role>/README.md` 를 바로 읽고 자기 역할을 확정한다.
+- 서브 에이전트는 `starter.md` 와 이 공통 인덱스를 반복해서 읽지 않고, `docs/agent/<role>/README.md` 를 첫 문서로 바로 읽고 자기 역할을 확정한다.
 - 각 서브 에이전트는 자기 역할 시작 폴더를 먼저 읽고 숙지한 뒤에만 실제 작업을 시작한다.
-- `orchestra` 는 서브 에이전트 생성 때 역할 설명 전문을 반복하지 않고, 역할명과 먼저 읽을 역할 문서 경로만 짧게 전달한다.
+- `orchestra` 는 서브 에이전트 생성 때 역할 설명 전문을 반복하지 않고, 역할명, 먼저 읽을 자기 역할 README 경로, 현재 문제 상황, 필요한 압축 context, 기대 산출물, `Context Report` 요구만 짧게 전달한다.
+- 서브 에이전트 생성 프롬프트에는 `starter.md`, 이 공통 인덱스, `docs/agent/orchestra/README.md` 를 부팅 또는 첫 읽기 문서로 넣지 않는다. 운영 문서 검토가 필요한 작업도 먼저 역할 README 를 읽게 한 뒤 진행한다. `starter.md` 관련 작업은 전체 파일 읽기를 맡기지 않고, `orchestra` 가 필요한 문제 상황과 좁은 발췌 또는 줄 범위만 작업 입력으로 제공한다.
 - 반복되는 금지사항, 체크리스트, 산출물 규칙은 각 역할의 `README.md` 가 담당한다.
 - 이 공통 인덱스는 bootstrap 전체의 역할 라우팅, 읽기 순서, 공통 경계만 유지한다.
 - 상세 운영 규칙, 검증 방식, 산출물 형식, 역할별 금지사항은 각 역할 README 가 맡으며, 이 파일에 중복해 쌓지 않는다.
@@ -72,7 +73,7 @@
 - dev-console/report server 는 생성된 artifact 를 보여주는 viewer 다. trace DB 를 읽어 fallback 보고서를 새로 만들거나 누락된 `cycle-report` 를 대체하지 않는다.
 - report server 의 지정 포트가 다른 프로세스에 점유되어 있으면 임의 포트로 fallback 하지 않고 fail-closed 로 실패를 보고한다.
 - 보고서의 목적은 사용자가 각 역할군이 실제로 무엇을 지시받았고 무엇을 했는지 브라우저에서 시각적으로 확인하게 하는 것이다.
-- `cycle-report` artifact 생성, readback, report server URL 확인까지 끝나야 1회 개발 사이클이 종료된다. 실패 시 `orchestra` 는 직접 fallback 보고서를 쓰지 않고 실패 자체를 trace 에 남겨 보고한다.
+- `cycle-report` artifact 생성, readback, report server readiness, browser open 확인까지 끝나야 1회 개발 사이클이 종료된다. 실패 시 `orchestra` 는 직접 fallback 보고서를 쓰지 않고 실패 자체를 trace 에 남겨 보고한다.
 - `codegen` 이 코드를 생성, 수정, 삭제했다면 `report.json.code_changes` 에 이번 cycle 에서 변경된 모든 hunk 를 파일명, 언어, 변경 종류, diff hunk, 변경 라인, 한국어 report annotation 과 함께 기록한다. 새 파일은 전체 신규 내용을 added hunk 로 보여주고, 대형/바이너리/민감 가능 파일은 `audit.json` 에 제외 이유를 남긴다.
 - 모든 서브 에이전트는 종료 응답에 `Context Report` 를 포함해 자기 컨텍스트 상태를 `low`, `medium`, `high`, `near-limit` 중 하나로 자체 평가한다.
 - `high` 또는 `near-limit` 인 서브 에이전트는 후속 작업에 재사용하지 않고, 요약을 흡수한 뒤 새 서브 에이전트로 이어간다.
@@ -98,6 +99,6 @@
 ## 운영 메모
 
 이 저장소는 폴더 구조와 문서 규칙으로 역할 분리를 표현한다.
-현재 운영 방식은 런타임 차단이 아니라 `starter.md` 와 역할별 README 경로를 서브 에이전트 컨텍스트에 짧게 주입해 역할 침범을 줄이는 방식이다.
+현재 운영 방식은 런타임 차단이 아니라 최상위 `orchestra` 에는 `starter.md` 를, 서브 에이전트에는 자기 역할 README 경로와 압축 작업 context 만 짧게 주입해 역할 침범을 줄이는 방식이다.
 `crates/xavi-harness/` 는 프로젝트 코드와 기능 검증용 하네스이며, 메인 에이전트나 서브 에이전트 실행을 통제하는 장치가 아니다.
 작업 도중 세션을 재시작해야 할 때만 각 역할의 `handoff/` 폴더가 사용되며, 정상 1회 사이클 문서화는 `user-docs` 와 `ai-docs` 단계에서 수행하고 사실 기반 종료 artifact 는 `cycle-report` 단계에서 수행한다.

@@ -2293,6 +2293,72 @@ a { color: inherit; }
   cursor: pointer;
 }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+.btn.text-expand-button {
+  justify-self: start;
+  min-height: 30px;
+  padding: 0 10px;
+  border-color: #b8cce6;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 12px;
+}
+.modal-enhanced .clampable {
+  position: relative;
+  max-height: 9.7em;
+  overflow: hidden;
+}
+.modal-enhanced pre.clampable,
+.modal-enhanced .evidence-text.clampable {
+  max-height: 13.2em;
+}
+.modal-enhanced .clampable.is-clamped::after {
+  content: "...";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  min-width: 58px;
+  padding-left: 34px;
+  background: linear-gradient(to right, rgba(255,255,255,0), #ffffff 42%);
+  color: var(--muted);
+  text-align: right;
+}
+.text-modal {
+  width: min(1040px, calc(100vw - 28px));
+  max-height: calc(100vh - 28px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+}
+.text-modal::backdrop { background: rgba(32,36,43,0.56); }
+.text-modal-frame {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: calc(100vh - 28px);
+}
+.text-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.text-modal-header h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.text-modal-body {
+  margin: 0;
+  max-height: min(72vh, 720px);
+  border-radius: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .report-shell {
   width: calc(100% - 32px);
   margin: 0 auto;
@@ -2603,7 +2669,7 @@ pre.evidence-text {
 <main class="report-shell">
   <section class="hero">
     <h1>사이클 전체 evidence 보고서</h1>
-    <p>cycle 종료 직후 생성된 공개 artifact의 사용자 요청 원문, 보고서 신뢰성 검증 상태, 역할별 dispatch/return, 명령 evidence를 기본 화면에 그대로 표시합니다.</p>
+    <p>cycle 종료 직후 생성된 공개 artifact의 사용자 요청 원문, 보고서 신뢰성 검증 상태, 역할별 지시/반환, 명령 evidence를 기본 화면에 그대로 표시합니다.</p>
     <p>전체 diff hunk는 이 화면에 렌더링하지 않고 전용 prebuilt artifact인 diff.html에서 확인합니다.</p>
     <p>요약과 changed_files는 derived/display 보조 정보이며, 원문이 없으면 복원하지 않고 원문 증거 상태를 그대로 보여줍니다.</p>
     __EVIDENCE_STATUS_WARNING__
@@ -2612,9 +2678,9 @@ pre.evidence-text {
   <nav class="sticky-nav" aria-label="보고서 anchor navigation">
     <a href="#status-title">상태</a>
     <a href="#evidence-title">사용자 요청</a>
-    <a href="#workflow-title">작업 흐름</a>
-    <a href="#delegations-title">dispatch evidence</a>
-    <a href="#roles-title">return evidence</a>
+    <a href="#workflow-title">1회 작업 사이클 과정</a>
+    <a href="#delegations-title">역할 지시 원문</a>
+    <a href="#roles-title">역할 반환 원문</a>
     <a href="#verification-title">command evidence</a>
     <a href="#files-title">changed_files</a>
     <a href="#diff-title">diff.html</a>
@@ -2667,15 +2733,15 @@ pre.evidence-text {
   </section>
 
   <section class="section" aria-labelledby="workflow-title">
-    <h2 id="workflow-title">보조 작업 흐름 지도</h2>
-    <p class="section-intro">이 구역은 derived/display 보조 정보입니다. 원문 지시와 반환은 위 evidence 구역과 아래 역할 반환 evidence에서 확인합니다.</p>
+    <h2 id="workflow-title">1회 작업 사이클 과정</h2>
+    <p class="section-intro">이 구역은 derived/display 보조 정보입니다. 원문 지시와 반환은 위 evidence 구역과 아래 역할 반환 원문에서 확인합니다.</p>
     <div class="grid-many">
       __WORKFLOW_MAP__
     </div>
   </section>
 
   <section class="section" aria-labelledby="delegations-title">
-    <h2 id="delegations-title">오케스트라 역할 지시 evidence</h2>
+    <h2 id="delegations-title">역할 지시 원문</h2>
     <p class="section-intro">역할별 지시는 prompt_verbatim 원문 evidence와 표시용 파생 요약을 분리합니다. 원문이 없으면 복원하지 않고 missing evidence로 표시합니다.</p>
     <div class="delegation-list">
       __ORCHESTRA_DELEGATIONS__
@@ -2683,7 +2749,7 @@ pre.evidence-text {
   </section>
 
   <section class="section" aria-labelledby="roles-title">
-    <h2 id="roles-title">역할 반환 원문 evidence</h2>
+    <h2 id="roles-title">역할 반환 원문</h2>
     <div class="grid-many">
       __ROLE_BOARD__
     </div>
@@ -2744,6 +2810,92 @@ pre.evidence-text {
     __RAW_DETAILS__
   </section>
 </main>
+<dialog id="report-text-modal" class="text-modal" aria-labelledby="report-text-modal-title">
+  <form method="dialog" class="text-modal-frame">
+    <header class="text-modal-header">
+      <h2 id="report-text-modal-title">원문 크게 보기</h2>
+      <button class="btn" type="submit" data-modal-close>닫기</button>
+    </header>
+    <pre id="report-text-modal-body" class="text-modal-body"></pre>
+  </form>
+</dialog>
+<script>
+(() => {
+  const dialog = document.getElementById('report-text-modal');
+  const title = document.getElementById('report-text-modal-title');
+  const body = document.getElementById('report-text-modal-body');
+  if (!dialog || !title || !body || typeof dialog.showModal !== 'function') return;
+
+  document.documentElement.classList.add('modal-enhanced');
+  let returnFocus = null;
+  const selectors = [
+    '.user-request-card .evidence-text',
+    '.verbatim-evidence > .evidence-text',
+    '.card > p',
+    '.card > pre',
+    '.card .evidence-details pre',
+    '.flow-card > p',
+    '.report-card > p',
+    '.report-card > pre',
+    '.report-card .derived-card p',
+    '.report-card .evidence-details pre',
+    '.role-card > p',
+    '.role-card > pre',
+    '.role-card .derived-card p',
+    '.role-card .evidence-details pre',
+    '.delegation-card > p',
+    '.delegation-card > pre',
+    '.delegation-card .derived-card p',
+    '.delegation-card .evidence-details pre',
+    '.evidence-field .evidence-text',
+    '.technical-details pre',
+    'details > pre'
+  ];
+
+  const clampTargets = Array.from(document.querySelectorAll(selectors.join(',')))
+    .filter((target, index, all) => all.indexOf(target) === index)
+    .filter((target) => !target.closest('.diff-file, .diff-table, .diff-line'));
+
+  const labelFor = (target) => {
+    const owner = target.closest('.card, .report-card, .role-card, .delegation-card, .evidence-field, details, article, section');
+    const label = owner?.querySelector('h3, strong, summary, span')?.textContent?.trim();
+    return label || '원문 크게 보기';
+  };
+
+  const openModal = (target, trigger) => {
+    returnFocus = trigger;
+    title.textContent = labelFor(target);
+    body.textContent = target.textContent || '';
+    dialog.showModal();
+  };
+
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  dialog.addEventListener('close', () => {
+    if (returnFocus) returnFocus.focus({ preventScroll: true });
+    returnFocus = null;
+  });
+
+  clampTargets.forEach((target) => target.classList.add('clampable'));
+  requestAnimationFrame(() => {
+    clampTargets.forEach((target) => {
+      const text = target.textContent || '';
+      const looksLong = text.length > 280 || text.split('\n').length > 7;
+      const overflows = looksLong || target.scrollHeight > target.clientHeight + 2 || target.scrollWidth > target.clientWidth + 2;
+      if (!overflows) return;
+      target.classList.add('is-clamped');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn text-expand-button';
+      button.textContent = '원문 크게 보기';
+      button.setAttribute('aria-label', `${labelFor(target)} 원문 크게 보기`);
+      button.addEventListener('click', () => openModal(target, button));
+      target.insertAdjacentElement('afterend', button);
+    });
+  });
+})();
+</script>
 </body>
 </html>"##
         .to_owned();
@@ -4267,7 +4419,7 @@ fn render_raw_role_return_evidence_cards(raw_json: Option<&str>) -> Vec<String> 
             format!(
                 r#"<article class="role-card">
         <span>{} · {}</span>
-        <strong>raw role return evidence</strong>
+        <strong>raw 역할 반환 원문</strong>
         {}
       </article>"#,
                 html_escape(entry.artifact_name),
@@ -7766,9 +7918,9 @@ mod tests {
         for title in [
             "사이클 상태",
             "사용자 요청 원문",
-            "보조 작업 흐름 지도",
-            "오케스트라 역할 지시 evidence",
-            "역할 반환 원문 evidence",
+            "1회 작업 사이클 과정",
+            "역할 지시 원문",
+            "역할 반환 원문",
             "실패 분석",
             "테스트 명령/결과 원문 evidence",
             "전체 변경 기록",
@@ -7859,6 +8011,66 @@ mod tests {
         assert!(html.contains("overflow-wrap: anywhere;"));
         assert!(html.contains("width: calc(100% - 32px);"));
         assert!(!html.contains("width: min(1380px"));
+    }
+
+    #[test]
+    fn cycle_report_artifact_html_localizes_dispatch_return_and_adds_text_modal() {
+        let long_flow_text = long_flow_card_fixture_text();
+        let artifact = sample_cycle_report_artifact_with_workflow_text(&long_flow_text);
+        let html = render_cycle_report_artifact_html(&artifact);
+        let diff_html = render_cycle_report_diff_html(&artifact);
+        let escaped_long_flow_text = html_escape(&long_flow_text);
+
+        for phrase in ["1회 작업 사이클 과정", "역할 지시 원문", "역할 반환 원문"]
+        {
+            assert!(html.contains(phrase), "missing modal/localized phrase: {phrase}");
+        }
+        assert_text_modal_scaffold_and_flow_selector(&html);
+        assert!(
+            long_flow_text.len() > 280 && long_flow_text.lines().count() > 7,
+            "fixture should be long enough to satisfy the clamp heuristic"
+        );
+        assert!(
+            html.contains(&format!("<p>{escaped_long_flow_text}</p>")),
+            "rendered workflow map should preserve the long flow-card paragraph in the source DOM"
+        );
+        assert!(
+            html.contains("const looksLong = text.length > 280 || text.split('\\n').length > 7;"),
+            "modal enhancer should clamp long text by length or line count"
+        );
+        for old_label in [
+            ">dispatch evidence</a>",
+            ">return evidence</a>",
+            "역할별 dispatch evidence",
+            "역할별 return evidence",
+            "Role Dispatch / Return",
+        ] {
+            assert!(!html.contains(old_label), "old label should be removed: {old_label}");
+        }
+        assert!(
+            html.contains("body.textContent = target.textContent || '';"),
+            "modal should reuse the original DOM text instead of replacing the source node"
+        );
+        assert!(
+            !diff_html.contains("report-text-modal"),
+            "diff.html should remain a diff-only artifact without the text modal UI"
+        );
+    }
+
+    #[test]
+    fn cycle_report_index_template_localizes_dispatch_return_and_contains_text_modal() {
+        let template_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../docs/agent/cycle-report/templates/index.html");
+        let template = std::fs::read_to_string(template_path).expect("template should be readable");
+
+        for phrase in ["1회 작업 사이클 과정", "역할 지시 원문", "역할 반환 원문"]
+        {
+            assert!(template.contains(phrase), "missing template phrase: {phrase}");
+        }
+        assert_text_modal_scaffold_and_flow_selector(&template);
+        assert!(!template.contains(">dispatch evidence</a>"));
+        assert!(!template.contains(">return evidence</a>"));
+        assert!(!template.contains("Role Dispatch / Return"));
     }
 
     #[test]
@@ -9501,6 +9713,56 @@ mod tests {
             Some(SAMPLE_CYCLE_REPORT_AUDIT_JSON.to_owned()),
             Some(SAMPLE_CYCLE_REPORT_CONTEXT_MARKDOWN.to_owned()),
         )
+    }
+
+    fn sample_cycle_report_artifact_with_workflow_text(workflow_text: &str) -> CycleReportArtifact {
+        let report_json = SAMPLE_CYCLE_REPORT_JSON.replace(
+            r#""orchestra_instruction":"orchestra가 cycle-report를 생성하라고 지시함""#,
+            &format!(r#""orchestra_instruction":{}"#, json_string(workflow_text)),
+        );
+        CycleReportArtifact::from_parts(
+            "cycle-report-route-test",
+            report_json,
+            Some(SAMPLE_CYCLE_REPORT_RAW_JSON.to_owned()),
+            Some(SAMPLE_CYCLE_REPORT_AUDIT_JSON.to_owned()),
+            Some(SAMPLE_CYCLE_REPORT_CONTEXT_MARKDOWN.to_owned()),
+        )
+    }
+
+    fn long_flow_card_fixture_text() -> String {
+        (1..=9)
+            .map(|index| {
+                format!(
+                    "flow-card 원문 DOM 보존 fixture line {index}: workflow derived/display paragraph가 세로 카드 안에서 길어져도 원본 <p> 노드는 유지되고 모달은 textContent로 복사해야 한다."
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    fn assert_text_modal_scaffold_and_flow_selector(html: &str) {
+        for phrase in [
+            "report-text-modal",
+            "text-modal-body",
+            "modal-enhanced",
+            "clampTargets",
+            "'.flow-card > p'",
+            "details > pre",
+            "button.className = 'btn text-expand-button';",
+            "button.textContent = '원문 크게 보기';",
+            "dialog.showModal();",
+            "returnFocus",
+        ] {
+            assert!(html.contains(phrase), "missing modal/clamp phrase: {phrase}");
+        }
+        assert!(
+            html.contains("body.textContent = target.textContent || '';"),
+            "modal should copy from the original DOM textContent"
+        );
+        assert!(
+            html.contains("target.insertAdjacentElement('afterend', button);"),
+            "expand control should be inserted after the source node instead of replacing it"
+        );
     }
 
     fn write_sample_report_artifact(reports_dir: &Path, cycle_id: &str) {

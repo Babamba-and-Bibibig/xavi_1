@@ -24,6 +24,7 @@
 3. context bundle 의 필수 항목 누락을 먼저 검사한다.
 4. 누락이 있어도 추정으로 채우지 않고 `audit.json` 과 `limitations` 에 남긴다.
 5. 산출물을 지정 경로에 쓴 뒤, 생성 파일 목록과 `Context Report` 를 `orchestra` 에 반환한다.
+6. `starter.md` 는 최상위 `orchestra` 의 세션 시작/복구 문서이므로, `cycle-report` 의 첫 읽기 문서나 일반 작업 context 로 읽지 않는다.
 
 ## 실행 트리거
 

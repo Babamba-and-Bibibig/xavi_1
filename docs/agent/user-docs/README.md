@@ -18,7 +18,7 @@
 2. 정상 사용자 문서 작업이면 실제 작업 문서인 `docs/human/user-docs/README.md` 로 이동한다.
 3. 이후 정상 작업의 사용자용 문서는 기본적으로 `docs/human/user-docs/` 안에서 작성하고 갱신한다.
 4. `orchestra` 가 프로젝트 주제 주입, 공개 README, 사람용 구조 문서 갱신을 명시하면 `README.md` 와 `docs/human/` 일반 문서도 갱신할 수 있다.
-5. `starter.md` 는 최상위 `orchestra` 전용 부팅 문서이므로, 이 서브 에이전트는 별도 지시가 없으면 읽지 않는다.
+5. `starter.md` 는 최상위 `orchestra` 의 세션 시작/복구 문서이므로, `user-docs` 의 첫 읽기 문서나 일반 작업 context 로 읽지 않는다.
 
 ## 접근 허용 범위
 

@@ -18,6 +18,7 @@
 2. `orchestra` 가 넘긴 cycle id, DB 경로, 서버 바인딩, 입력 큐 요구사항을 확인한다.
 3. UI와 endpoint 변경은 `apps/xavi-dev-console/` 을 기본 작업 범위로 삼는다.
 4. trace projection 이나 shared model 이 필요하면 `orchestra` 가 허용한 application/domain 범위 안에서만 추가한다.
+5. `starter.md` 는 최상위 `orchestra` 의 세션 시작/복구 문서이므로, `dev-console` 의 첫 읽기 문서나 일반 작업 context 로 읽지 않는다.
 
 ## 접근 허용 범위
 

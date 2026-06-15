@@ -13,6 +13,8 @@
   --line: #d9dee6;
   --panel: #ffffff;
   --accent: #146c5f;
+  --blue: #2d5c88;
+  --blue-soft: #eef4fb;
   --warn: #94610b;
   --warn-soft: #fff6e3;
   --danger-soft: #fff1f1;
@@ -54,6 +56,72 @@ a { color: inherit; }
   text-decoration: none;
 }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+.btn.text-expand-button {
+  justify-self: start;
+  min-height: 30px;
+  padding: 0 10px;
+  border-color: #b8cce6;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 12px;
+}
+.modal-enhanced .clampable {
+  position: relative;
+  max-height: 9.7em;
+  overflow: hidden;
+}
+.modal-enhanced pre.clampable,
+.modal-enhanced .evidence-text.clampable {
+  max-height: 13.2em;
+}
+.modal-enhanced .clampable.is-clamped::after {
+  content: "...";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  min-width: 58px;
+  padding-left: 34px;
+  background: linear-gradient(to right, rgba(255,255,255,0), #ffffff 42%);
+  color: var(--muted);
+  text-align: right;
+}
+.text-modal {
+  width: min(1040px, calc(100vw - 28px));
+  max-height: calc(100vh - 28px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+}
+.text-modal::backdrop { background: rgba(32,36,43,0.56); }
+.text-modal-frame {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: calc(100vh - 28px);
+}
+.text-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.text-modal-header h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.text-modal-body {
+  margin: 0;
+  max-height: min(72vh, 720px);
+  border-radius: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .shell {
   width: calc(100% - 32px);
   max-width: none;
@@ -218,7 +286,7 @@ pre.evidence-text {
 <main class="shell">
   <section class="hero">
     <h1>사이클 evidence 보고서</h1>
-    <p>이 index artifact 는 사용자 요청, 역할별 dispatch/return evidence, command evidence, audit 경고, changed_files 색인, raw/context drill-down 을 먼저 보여준다.</p>
+    <p>이 index artifact 는 사용자 요청, 역할별 지시/반환 원문, command evidence, audit 경고, changed_files 색인, raw/context drill-down 을 먼저 보여준다.</p>
     <p>전체 diff hunk line 은 이 화면에 렌더링하지 않는다. 파일/hunk anchor 색인과 diff.html 링크만 제공한다.</p>
     {{evidence_audit_warning}}
   </section>
@@ -226,9 +294,9 @@ pre.evidence-text {
   <nav class="sticky-nav" aria-label="report anchors">
     <a href="#status">상태</a>
     <a href="#user-request">사용자 요청</a>
-    <a href="#workflow">작업 흐름</a>
-    <a href="#dispatch">dispatch evidence</a>
-    <a href="#returns">return evidence</a>
+    <a href="#workflow">1회 작업 사이클 과정</a>
+    <a href="#dispatch">역할 지시 원문</a>
+    <a href="#returns">역할 반환 원문</a>
     <a href="#commands">command evidence</a>
     <a href="#audit">신뢰성 검증</a>
     <a href="#changed-files">changed_files</a>
@@ -278,18 +346,18 @@ pre.evidence-text {
   </section>
 
   <section id="workflow" class="section" aria-labelledby="workflow-title">
-    <h2 id="workflow-title">작업 흐름</h2>
-    <p class="section-intro">이 구역은 derived/display 보조 지도다. 원문 지시와 반환은 dispatch/return evidence에서 확인한다.</p>
+    <h2 id="workflow-title">1회 작업 사이클 과정</h2>
+    <p class="section-intro">이 구역은 derived/display 보조 지도다. 원문 지시와 반환은 역할 지시 원문과 역할 반환 원문에서 확인한다.</p>
     <div class="grid-many">{{workflow_cards}}</div>
   </section>
 
   <section id="dispatch" class="section" aria-labelledby="dispatch-title">
-    <h2 id="dispatch-title">역할별 dispatch evidence</h2>
+    <h2 id="dispatch-title">역할 지시 원문</h2>
     <div class="record-list">{{orchestra_delegations}}</div>
   </section>
 
   <section id="returns" class="section" aria-labelledby="returns-title">
-    <h2 id="returns-title">역할별 return evidence</h2>
+    <h2 id="returns-title">역할 반환 원문</h2>
     <div class="record-list">{{role_returns}}</div>
   </section>
 
@@ -357,5 +425,91 @@ pre.evidence-text {
     </div>
   </section>
 </main>
+<dialog id="report-text-modal" class="text-modal" aria-labelledby="report-text-modal-title">
+  <form method="dialog" class="text-modal-frame">
+    <header class="text-modal-header">
+      <h2 id="report-text-modal-title">원문 크게 보기</h2>
+      <button class="btn" type="submit" data-modal-close>닫기</button>
+    </header>
+    <pre id="report-text-modal-body" class="text-modal-body"></pre>
+  </form>
+</dialog>
+<script>
+(() => {
+  const dialog = document.getElementById('report-text-modal');
+  const title = document.getElementById('report-text-modal-title');
+  const body = document.getElementById('report-text-modal-body');
+  if (!dialog || !title || !body || typeof dialog.showModal !== 'function') return;
+
+  document.documentElement.classList.add('modal-enhanced');
+  let returnFocus = null;
+  const selectors = [
+    '.user-request-card .evidence-text',
+    '.verbatim-evidence > .evidence-text',
+    '.card > p',
+    '.card > pre',
+    '.card .evidence-details pre',
+    '.flow-card > p',
+    '.report-card > p',
+    '.report-card > pre',
+    '.report-card .derived-card p',
+    '.report-card .evidence-details pre',
+    '.role-card > p',
+    '.role-card > pre',
+    '.role-card .derived-card p',
+    '.role-card .evidence-details pre',
+    '.delegation-card > p',
+    '.delegation-card > pre',
+    '.delegation-card .derived-card p',
+    '.delegation-card .evidence-details pre',
+    '.evidence-field .evidence-text',
+    '.technical-details pre',
+    'details > pre'
+  ];
+
+  const clampTargets = Array.from(document.querySelectorAll(selectors.join(',')))
+    .filter((target, index, all) => all.indexOf(target) === index)
+    .filter((target) => !target.closest('.diff-file, .diff-table, .diff-line'));
+
+  const labelFor = (target) => {
+    const owner = target.closest('.card, .report-card, .role-card, .delegation-card, .evidence-field, details, article, section');
+    const label = owner?.querySelector('h3, strong, summary, span')?.textContent?.trim();
+    return label || '원문 크게 보기';
+  };
+
+  const openModal = (target, trigger) => {
+    returnFocus = trigger;
+    title.textContent = labelFor(target);
+    body.textContent = target.textContent || '';
+    dialog.showModal();
+  };
+
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  dialog.addEventListener('close', () => {
+    if (returnFocus) returnFocus.focus({ preventScroll: true });
+    returnFocus = null;
+  });
+
+  clampTargets.forEach((target) => target.classList.add('clampable'));
+  requestAnimationFrame(() => {
+    clampTargets.forEach((target) => {
+      const text = target.textContent || '';
+      const looksLong = text.length > 280 || text.split('\n').length > 7;
+      const overflows = looksLong || target.scrollHeight > target.clientHeight + 2 || target.scrollWidth > target.clientWidth + 2;
+      if (!overflows) return;
+      target.classList.add('is-clamped');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn text-expand-button';
+      button.textContent = '원문 크게 보기';
+      button.setAttribute('aria-label', `${labelFor(target)} 원문 크게 보기`);
+      button.addEventListener('click', () => openModal(target, button));
+      target.insertAdjacentElement('afterend', button);
+    });
+  });
+})();
+</script>
 </body>
 </html>

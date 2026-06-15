@@ -14,7 +14,8 @@
 
 1. 이 파일 `docs/agent/ai-docs/README.md` 를 먼저 읽고 AI 에이전트용 문서 관리 범위를 숙지한다.
 2. `orchestra` 가 넘긴 1회 사이클 요약과 역할별 산출물만 AI 전용 문서로 압축한다.
-3. `starter.md`, `ender.md`, `inject_subject_once.md`, `docs/agent/README.md` 는 실제 운영 문서 갱신이 필요할 때만 읽는다.
+3. `ender.md`, `inject_subject_once.md`, `docs/agent/README.md` 는 이 역할 README 를 먼저 읽은 뒤, 실제 운영 문서 갱신이 필요한 작업 입력에서 해당 경로가 명시될 때만 추가로 읽는다.
+4. `starter.md` 는 서브 에이전트 생성 시점의 첫 읽기 문서나 전체 context 문서가 아니라 최상위 `orchestra` 세션 시작/복구 문서다. `starter.md` 갱신이 필요하면 `orchestra` 가 필요한 문제 상황과 좁은 발췌 또는 줄 범위를 작업 입력으로 제공하고, `ai-docs` 는 그 범위만 기준으로 수정한다.
 
 ## 접근 허용 범위
 
@@ -43,7 +44,7 @@
 - 없는 기능이나 확인되지 않은 상태를 사실처럼 적지 않는다.
 - 운영 문서 수정 책임자로서 범용 bootstrap 일반성을 보존하고, 역할 README 사이의 cross-doc consistency 를 확인한다.
 - 실제 sub-agent 도구 부재나 상위 정책 차단을 단일 컨텍스트 fallback 구현으로 표현하지 않는다. 필요한 승인, 도구 노출, 운영 방식 수정 지점을 보고하고 중단하는 문장으로 통일한다.
-- cycle close 계약을 바꿀 때는 `orchestra` dispatch 기반 `cycle-report`, artifact readback, frontend report server 자동 실행/재사용, 해당 cycle URL 브라우저 오픈, 포트 충돌 fail-closed, trace DB fallback 생성 금지를 함께 맞춘다.
+- cycle close 계약을 바꿀 때는 `orchestra` dispatch 기반 `cycle-report`, artifact readback, frontend report server 자동 실행/재사용, readiness 확인, 해당 cycle URL 브라우저 오픈, 포트 충돌 fail-closed, trace DB fallback 생성 금지를 함께 맞춘다.
 - 원문 evidence 계약을 바꿀 때는 사용자 프롬프트 수신 직후 `user_request_verbatim`, sub-agent spawn 직전 `agent_dispatch.prompt_verbatim`, completion 직후 가능한 result 원문 저장, `source_ref`/`hash_sha256`/`timestamp`/`order`/`role`/`agent_id` metadata, `audit.missing_evidence[]`, `audit.status=fail|warn`, derived/summary/display 라벨을 함께 맞춘다.
 - runtime boundary evidence 계약을 바꿀 때는 repo 코드가 Codex `spawn_agent` tool invocation 자체를 자동 interception 하지 못할 수 있음을 명시하고, `code-level automatic` 과 `orchestra-protocol automatic` 을 분리한다. append 실패는 summary 대체 없이 spawn 중단 또는 fail-closed/incomplete evidence 로 맞춘다.
 - 코드 변경 보고 계약을 바꿀 때는 `codegen` 반환 evidence, `review` evidence 검수, `cycle-report` 의 `report.json.code_changes`, `audit.json` 제외 사유, 한국어 report layer annotation 원칙을 함께 맞춘다.
@@ -79,7 +80,7 @@
 
 `ai-docs` 는 이 입력을 바탕으로 AI 전용 문서를 갱신한다.
 이 갱신이 끝난 뒤에도 아직 1회 개발 사이클 완료가 아니다.
-`orchestra` 가 `cycle-report` artifact 를 생성, readback 하고 frontend report server URL 을 열어 사용자가 보고서를 확인할 수 있게 해야 사이클 종료 조건이 충족된다.
+`orchestra` 가 `cycle-report` artifact 를 생성, readback 하고 frontend report server readiness 와 해당 cycle URL browser open 을 확인해 사용자가 보고서를 확인할 수 있게 해야 사이클 종료 조건이 충족된다.
 
 ## 중간 중단 인계
 

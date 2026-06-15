@@ -8,13 +8,13 @@
 - 현재 상황을 사용자와 함께 파악
 - 필요한 서브 에이전트 역할 결정
 - 서브 에이전트 생성, 종료, 재생성 관리
-- 서브 에이전트에 역할명과 먼저 읽을 문서 경로를 짧게 전달
+- 서브 에이전트에 역할명, 먼저 읽을 자기 역할 README 경로, 현재 문제 상황, 필요한 압축 context 를 짧게 전달
 - 서브 에이전트 반환 결과와 `Context Report` 검수
 - 개발 업무 절대 고정 루프 진행과 산출물 전달
 - `development_trace` 원장과 `thinking_from_main_oche_cycle_*.md` trace/export/mirror 관리
 - 사용자용 문서 갱신과 AI 전용 문서 갱신을 1회 사이클 마지막에 실행
 - 사이클 close hook 에서 `cycle-report` 를 dispatch 해 종료 artifact 생성
-- artifact readback 직후 frontend report server 실행/재사용과 해당 cycle report URL 브라우저 오픈
+- artifact readback 직후 frontend report server 실행/재사용, readiness 확인, 해당 cycle report URL 브라우저 오픈
 - 역할 위반 결과 폐기 또는 재지시
 - 전체 작업 흐름과 사용자 보고 조율
 
@@ -23,7 +23,8 @@
 1. `starter.md` 를 읽고 기본 역할이 `orchestra` 인지 확인한다.
 2. `docs/agent/README.md` 를 읽고 전체 역할 라우팅과 문서 경계를 확인한다.
 3. 이 파일 `docs/agent/orchestra/README.md` 를 읽고 오케스트라 역할을 확정한다.
-4. 이후 사용자와 대화하고 필요한 서브 에이전트에 각자의 역할 시작 문서 경로만 짧게 전달한다.
+4. 이후 사용자와 대화하고 필요한 서브 에이전트에 각자의 역할 시작 문서 경로와 압축 context 만 짧게 전달한다.
+5. 이 시작 순서는 최상위 `orchestra` 전용이며, 서브 에이전트 생성 프롬프트에는 `starter.md`, 공통 인덱스, 이 문서를 첫 읽기 문서로 넣지 않는다.
 
 ## 자동 활성화 규칙
 
@@ -78,7 +79,8 @@
 - 사이클 종료 artifact 생성은 `cycle-report` 에 맡긴다.
 - 로컬 HTML 개발 참여 콘솔처럼 화면/입력 큐가 중심인 작업은 프로젝트별 전문 역할인 `dev-console` 에 맡길 수 있다.
 - 사용자에게 보고할 때는 서브 에이전트 결과를 검수한 뒤 사실 범위 안에서 압축해 전달한다.
-- 서브 에이전트 생성 프롬프트에는 역할명, 읽을 문서 경로, 이번 작업 입력, `Context Report` 요구만 짧게 포함한다.
+- 서브 에이전트 생성 프롬프트에는 역할명, 읽을 자기 역할 README 경로, 현재 문제 상황, 필요한 압축 context, 이번 작업 입력, 기대 산출물, `Context Report` 요구만 짧게 포함한다.
+- 서브 에이전트 생성 프롬프트에는 `starter.md`, `docs/agent/README.md`, `docs/agent/orchestra/README.md` 를 부팅, 첫 읽기, 전체 context 문서로 넣지 않는다. `starter.md` 관련 작업이 필요하면 `orchestra` 가 필요한 문제 상황과 좁은 발췌 또는 줄 범위만 전달한다.
 - 역할 설명, 금지사항, 체크리스트, 산출물 세부 규칙은 프롬프트에 반복 복사하지 않고 각 역할 문서를 읽게 해서 적용한다.
 - 서브 에이전트를 실행할 때는 사용 가능한 최신 프론티어급 모델을 기본으로 선택한다. 2026-05-22 현재 기준 기본값은 `gpt-5.5` 와 reasoning effort `xhigh` 다.
 - 서브 에이전트의 `context_level` 이 `high` 또는 `near-limit` 이거나 `recommended_action` 이 `close_and_respawn` 이면 해당 에이전트를 재사용하지 않는다.
@@ -280,7 +282,13 @@ cycle report 의 사용자 목적은 역할별 지시, 실제 수행, 반환 검
 ```text
 너는 <role> 역할이야.
 먼저 `<role-doc-path>` 를 읽고 숙지해.
-이번 작업 입력: <필요한 최소 입력>
+이번 문제 상황: <현재 문제가 된 상태>
+필요한 context: <작업 성공에 필요한 압축 맥락>
+이번 작업 입력: <역할이 수행할 구체 작업>
+기대 산출물: <반환해야 할 결과>
+주의: 첫 읽기 문서는 위 역할 README 하나뿐이야.
+starter.md, docs/agent/README.md, docs/agent/orchestra/README.md 는 전체 context 로 읽지 마.
+starter.md 관련 작업이면 이 프롬프트가 제공한 발췌나 줄 범위 안에서만 다뤄.
 작업 종료 시 Context Report 를 포함해.
 ```
 

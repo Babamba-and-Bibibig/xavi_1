@@ -13,7 +13,7 @@
 
 1. 이 파일 `docs/agent/ephemeral/README.md` 를 먼저 읽고 임시 세션 운영 범위를 숙지한다.
 2. 자기에게 배정된 `sessions/<session-id>/` 범위 안에서만 임시 작업을 수행한다.
-3. `starter.md` 는 최상위 `orchestra` 전용 부팅 문서이므로, 이 서브 에이전트는 별도 지시가 없으면 읽지 않는다.
+3. `starter.md` 는 최상위 `orchestra` 의 세션 시작/복구 문서이므로, `ephemeral` 의 첫 읽기 문서나 일반 작업 context 로 읽지 않는다.
 
 ## 접근 허용 범위
 

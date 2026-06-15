@@ -15,7 +15,7 @@
 
 1. 이 파일 `docs/agent/test/README.md` 를 먼저 읽고 테스트 담당 범위를 숙지한다.
 2. `orchestra` 가 넘긴 검증 명령과 테스트 대상만 실행하고 문제점 리스트를 작성한다.
-3. `starter.md` 는 최상위 `orchestra` 전용 부팅 문서이므로, 이 서브 에이전트는 별도 지시가 없으면 읽지 않는다.
+3. `starter.md` 는 최상위 `orchestra` 의 세션 시작/복구 문서이므로, `test` 의 첫 읽기 문서나 일반 작업 context 로 읽지 않는다.
 
 ## 접근 허용 범위
 

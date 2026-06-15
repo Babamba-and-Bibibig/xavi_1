@@ -2,12 +2,12 @@
 
 This repository is an AI-collaboration bootstrap, not a normal single-agent
 coding repo. The default top-level session is always `orchestra` unless the
-user explicitly names one of the standard roles from `starter.md`.
+user explicitly names one of the standard roles listed in `docs/agent/README.md`.
 
 ## Mandatory First Reads
 
 For the default top-level `orchestra` session, including any prompt that does
-not explicitly name a standard role from `starter.md`, read:
+not explicitly name a standard role from `docs/agent/README.md`, read:
 
 1. `starter.md`
 2. `docs/agent/README.md`
@@ -20,9 +20,18 @@ implementation, review, verification, or documentation ownership.
 Explicit role sessions and real sub-agent sessions are the exception: when the
 user explicitly starts a standard role session, or when `orchestra` creates a
 real sub-agent for an assigned role, that session must first read only its
-assigned `docs/agent/<role>/README.md`. It must not repeat `starter.md`, the
-common role index, or `docs/agent/orchestra/README.md` unless its own role
-README or the delegated task explicitly requires those files.
+assigned `docs/agent/<role>/README.md`. The role-start or spawn prompt must not
+list `starter.md`, the common role index, or `docs/agent/orchestra/README.md` as
+additional startup reads. After that first role README has been read, a role may
+open extra operating documents only when its own role README and the delegated
+task explicitly require those specific files.
+`starter.md` is not an extra context preload for sub-agents. If a delegated task
+concerns `starter.md`, `orchestra` must pass the needed problem statement and
+narrow excerpts or line ranges instead of asking the sub-agent to read the whole
+file.
+
+If the user explicitly names `orchestra` as the top-level main session, this is
+still a top-level `orchestra` boot and the mandatory first reads above apply.
 
 This exception narrows only the first-read scope. It does not weaken the
 `orchestra`-only top-level contract, the required real sub-agent delegation

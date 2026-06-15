@@ -14,7 +14,7 @@
 
 1. 이 파일 `docs/agent/review/README.md` 를 먼저 읽고 검수 담당 범위를 숙지한다.
 2. `orchestra` 가 넘긴 변경 범위와 검수 입력만 기준으로 문제점 리스트를 작성한다.
-3. `starter.md` 는 최상위 `orchestra` 전용 부팅 문서이므로, 이 서브 에이전트는 별도 지시가 없으면 읽지 않는다.
+3. `starter.md` 는 최상위 `orchestra` 의 세션 시작/복구 문서이므로, `review` 의 첫 읽기 문서나 일반 작업 context 로 읽지 않는다.
 
 ## 접근 허용 범위
 

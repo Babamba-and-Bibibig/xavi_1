@@ -13,7 +13,7 @@
 
 1. 이 파일 `docs/agent/codegen/README.md` 를 먼저 읽고 코드 생성 역할과 문서 금지 규칙을 숙지한다.
 2. `orchestra` 가 넘긴 구현 입력과 허용 파일 범위 안에서만 코드 변경을 수행한다.
-3. `starter.md` 는 최상위 `orchestra` 전용 부팅 문서이므로, 이 서브 에이전트는 별도 지시가 없으면 읽지 않는다.
+3. `starter.md` 는 최상위 `orchestra` 의 세션 시작/복구 문서이므로, `codegen` 의 첫 읽기 문서나 일반 작업 context 로 읽지 않는다.
 
 ## 역할 문서 읽기 범위
 

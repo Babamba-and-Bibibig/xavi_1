@@ -71,7 +71,9 @@
 개발은 아래처럼 작은 사이클 단위로 진행합니다.
 
 ```text
-사용자 요청 -> orchestra 이해/분해 -> planning -> 사용자 승인 -> codegen -> review -> test -> docs(user-docs/ai-docs) -> cycle-report -> HTML 보고서 확인 -> 다음 사이클 지시
+사용자 요청 -> orchestra 이해/분해 -> planning -> 사용자 승인
+-> codegen -> review -> test -> docs(user-docs/ai-docs)
+-> cycle-report -> HTML 보고서 확인 -> 다음 사이클 지시
 ```
 
 개발자 워크플로 관점에서 한 사이클은 HTML 보고서가 생성되고, 브라우저에서 열리고, 개발자가 내용을 확인해야 완료됩니다.

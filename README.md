@@ -8,6 +8,8 @@
 
 일반적인 템플릿이 폴더와 예제 코드만 제공하는 데 비해, 이 저장소는 AI 에이전트가 프로젝트를 진행하는 방식까지 문서로 고정합니다. 사용자는 먼저 프로젝트 주제를 정하고, AI 에이전트는 `starter.md`, `inject_subject_once.md`, `ender.md`, `docs/agent/` 문서 체계를 따라 분석, 계획, 구현, 검수, 테스트, 문서화를 역할별로 나누어 진행합니다.
 
+이 부트스트랩은 Codex, Claude Code 같은 AI coding tool을 오래 켜 두고 큰 작업을 맡기는 방식에서 생기는 문제를 줄이기 위해 만들어졌습니다. 긴 AI 작업이 제한 없이 이어지면 나중에 어느 지점에서 실수가 시작됐는지, 코드가 실제로 어떻게 동작하는지, 왜 디버깅이 부담스러워졌는지 찾기 어려워질 수 있습니다. 그래서 이 저장소는 개발을 끝없는 무인 AI 작업이 아니라, 사람이 검토할 수 있는 작은 `1회 작업 사이클` 단위로 끊습니다. 각 사이클은 특히 HTML 보고서를 통해 AI가 프롬프트를 어떻게 이해했는지, 어떤 서브 에이전트가 만들어졌는지, 그들이 어떤 지시와 컨텍스트를 받았고 무엇을 반환했는지, `orchestra`가 그 결과를 어떻게 받아들이거나 이어갔는지, 어떤 검증이 있었는지 개발자가 확인한 뒤 다음 지시로 넘어가는 흐름을 기준으로 합니다.
+
 현재 코드는 작은 health-check 예제를 가진 Rust clean architecture 워크스페이스입니다. 즉, 완성된 제품이 아니라 새 제품을 안전하게 만들기 위한 시작점입니다.
 
 ### 무엇을 위한 것인가요?
@@ -22,10 +24,24 @@
 
 ### 핵심 아이디어
 
-이 저장소는 두 가지를 함께 제공합니다.
+이 저장소는 아래 핵심 키워드로 이해하면 됩니다.
 
-1. Rust clean architecture 코드 골격
-2. AI 협업을 위한 역할 기반 운영 문서
+1. **클린 아키텍처 구조:** 유지보수하기 쉬운 Rust clean architecture 골격으로 시작합니다.
+2. **역할 기반 AI 협업:** 계획, 구현, 검수, 테스트, 문서화, 보고를 역할별로 나눕니다.
+3. **문서 분리:** 사람용 개발 문서와 AI 에이전트용 재시작/개발 보조 문서를 따로 관리합니다.
+4. **오케스트라 메인 에이전트:** `orchestra` 는 개발자와 소통하고 context를 아끼며 실제 작업은 sub-agent에 위임합니다.
+5. **서브 에이전트 활용:** `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs`, `cycle-report`가 각자 맡은 일만 수행합니다.
+6. **1회 작업 사이클:** 끝없는 AI 작업 대신 개발자가 검토 가능한 작은 단위로 끊어 진행합니다.
+7. **HTML 사이클 보고서:** 매 사이클의 증거와 결과를 로컬 DB에 남기고 HTML 보고서로 확인합니다.
+
+### 왜 내부 DB와 프론트엔드 서버가 있나요?
+
+이 저장소는 제품 기능이 아니라 개발 방식을 함께 제공하는 부트스트랩입니다.
+그래서 내부 SQLite DB와 로컬 프론트엔드 report server는 사용자 제품의 백엔드/프론트엔드가 아니라, `1회 작업 사이클`을 검토하기 위한 부트스트랩 운영 도구입니다.
+
+- **내부 DB:** 사용자 프롬프트 원문, sub-agent 지시, 반환 결과, 테스트 결과, 코드 변경 요약을 로컬 evidence로 저장합니다.
+- **프론트엔드 report server:** 저장된 evidence와 cycle-report 산출물을 HTML 화면으로 열어 개발자가 빠르게 검토하게 합니다.
+- **활용 방식:** 사이클이 끝날 때 자동으로 열린 HTML 보고서를 보고, AI가 무엇을 이해했고 무엇을 바꿨으며 어떤 검증이 있었는지 확인한 뒤 다음 지시를 내립니다.
 
 코드 구조는 다음 레이어를 유지합니다.
 
@@ -34,7 +50,7 @@
 - `crates/xavi-infrastructure`: 외부 시스템 adapter
 - `crates/xavi-harness`: 시나리오 기반 검증 하네스
 - `apps/xavi-bootstrap`: 실제 실행 진입점과 composition root
-- `apps/xavi-dev-console`: `development_trace` 와 cycle report artifact 를 보는 부트스트랩 운영 지원 도구
+- `apps/xavi-dev-console`: `development_trace` 와 cycle-report artifact 를 로컬 화면과 report server 로 확인하는 부트스트랩 운영 지원 도구
 
 문서 구조는 다음 역할을 유지합니다.
 
@@ -46,7 +62,31 @@
 - `analysis`: 테스트 실패의 근본 원인 분석 담당
 - `user-docs`: 사용자용 문서 작성 담당
 - `ai-docs`: AI 에이전트용 내부 문서 관리 담당
+- `cycle-report`: 1회 작업 사이클의 증거와 결과를 HTML/JSON/raw/audit/context 산출물로 고정하는 보고 담당
+- `dev-console`: `development_trace` 와 cycle-report 산출물을 로컬에서 확인하는 지원 담당
 - `ephemeral`: 일회성 조사나 보조 작업 담당
+
+### 1회 작업 사이클 한눈에 보기
+
+개발은 아래처럼 작은 사이클 단위로 진행합니다.
+
+```text
+사용자 요청 -> orchestra 이해/분해 -> planning -> 사용자 승인 -> codegen -> review -> test -> docs(user-docs/ai-docs) -> cycle-report -> HTML 보고서 확인 -> 다음 사이클 지시
+```
+
+개발자 워크플로 관점에서 한 사이클은 HTML 보고서가 생성되고, 브라우저에서 열리고, 개발자가 내용을 확인해야 완료됩니다.
+보고서를 보지 않고 다음 지시로 넘어가면 이 부트스트랩의 핵심 이유인 "AI 작업을 사람이 검토 가능한 증거 단위로 끊어 관리한다"는 장점이 사라집니다.
+
+보고서에서 특히 확인할 내용은 다음과 같습니다.
+
+- 원래 사용자 프롬프트
+- AI가 요청을 이해하고 분해한 방식
+- 각 sub-agent에게 전달된 지시와 컨텍스트
+- 각 sub-agent가 반환한 결과
+- `orchestra` 가 결과를 받아들인 방식과 다음 행동
+- 테스트와 검증 결과
+- 코드 변경 요약
+- audit 상태와 evidence 누락 경고
 
 ### 현재 상태
 
@@ -57,7 +97,9 @@
 - `xavi-bootstrap` 실행 파일이 health-check service를 조립해 실행합니다.
 - `xavi-harness`가 health-check scenario를 테스트합니다.
 - AI 역할 문서와 세션 종료 문서가 포함되어 있습니다.
-- `development_trace` 원장과 cycle report/dev-console 운영 계약이 포함되어 있습니다.
+- `development_trace` DB는 작업 사이클의 증거 저장, trace audit/export, cycle-report 생성, dev-console 표시의 기반으로 쓰이도록 설계되어 있습니다.
+- `cycle-report`, `xavi-dev-console`, 로컬 frontend report server 흐름이 포함되어 있습니다.
+- 정상적인 1회 작업 사이클은 cycle-report 산출물의 `index.html` 보고서를 만들고, report server가 그 HTML 보고서를 브라우저에서 열어 확인하는 흐름까지 포함합니다.
 - 작업 사이클을 사람이 짧게 부를 수 있는 별칭을 예약하고 조회할 수 있습니다.
 
 현재 상태는 제품 완성본이 아니라, 프로젝트 주제를 주입하기 전의 안정적인 출발점입니다.
@@ -91,6 +133,38 @@ RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 ```text
 xavi-bootstrap initialized: status=Healthy, message=bootstrap completed
 ```
+
+### 작업 증거와 HTML 보고서
+
+1회 작업 사이클은 하나의 작은 개발 목표를 계획, 사용자 승인, 구현, 검수, 테스트, 문서 정리, cycle-report 생성, HTML 보고서 확인까지 끝내는 단위입니다.
+개발 요청은 가능한 한 이 작은 작업 사이클 단위로 맡기고, 큰 요청은 여러 사이클로 나누는 것이 기본입니다.
+개발자 워크플로 관점에서는 HTML 보고서를 열어 직접 확인하기 전까지 사이클이 끝난 것으로 보지 않습니다.
+
+작업 사이클의 원문 지시, 역할별 dispatch/return, 검증 결과, 변경 요약은 `development_trace` DB에 남기는 것을 기준으로 합니다.
+사용자 프롬프트 원문도 작업 사이클 evidence로 내부 로컬 SQLite DB인 `.xavi/development_trace.sqlite3` 에 자동 저장됩니다.
+이 DB는 임시 로그가 아니라 같은 원본 evidence에서 사이클별 HTML/JSON 보고서와 dev-console 화면을 만들기 위한 의도된 기반입니다.
+
+1회 작업 사이클이 닫히면 `cycle-report` 가 `.xavi/reports/development_cycles/<cycle_id>/` 아래에 HTML/JSON 계열 보고서 산출물을 만듭니다.
+사용자가 보는 기본 보고서는 `index.html` 이고, 함께 생성되는 구조화 파일은 `report.json`, `raw.json`, `audit.json`, `context.md` 입니다.
+정상 흐름에서는 로컬 report server가 이 HTML 보고서를 브라우저에서 자동으로 열 수 있습니다. 갑자기 로컬 보고서 페이지가 열려도 작업의 일부로 보면 됩니다. 이 화면은 광고 페이지나 외부 전송 화면이 아니라, 이미 생성된 cycle-report 산출물을 보여주는 로컬 artifact viewer입니다.
+
+기본적으로 trace DB와 cycle-report 산출물은 `.xavi/development_trace.sqlite3`, `.xavi/reports/development_cycles/<cycle_id>/` 같은 로컬 프로젝트 폴더 안에 남습니다.
+부트스트랩 코드는 이 파일들을 외부 서버로 자동 업로드하거나 전송하지 않습니다.
+다만 사용자가 직접 `.xavi` 를 공유, 커밋, 업로드하거나, `export --out` 같은 export/copy 명령을 사용하거나, trace export 출력을 공유하거나, report server를 `127.0.0.1` 이 아닌 외부에서 접근 가능한 주소에 bind하면 해당 evidence와 보고서가 노출될 수 있습니다.
+로컬 evidence 보존을 받아들일 수 없는 비밀 키, 토큰, 비밀번호, 민감한 개인정보는 프롬프트에 넣지 않는 것이 좋습니다.
+
+보고서에서는 사용자 요청 원문, AI 해석, 역할별 지시와 반환, `orchestra` 의 수락/다음 행동, 테스트 결과, 코드 변경 요약, audit 상태와 누락 evidence 경고를 확인합니다.
+다음 수정 지시는 보고서에서 맞는 부분, 틀린 부분, 더 설명이 필요한 부분을 기준으로 내리는 것이 좋습니다.
+이 보고서는 장식용 화면이 아니라 AI와 사용자가 같은 작업 증거를 보며 다음 사이클을 정하기 위한 화면입니다.
+
+이미 생성된 cycle report를 열 때는 아래 명령을 사용할 수 있습니다.
+
+```bash
+cargo run -p xavi-dev-console -- open-cycle --cycle-id <cycle-id>
+```
+
+이 명령은 기본적으로 `127.0.0.1:4200` 의 로컬 report server를 재사용하거나 시작한 뒤 `/reports/<cycle-id>/` URL을 브라우저에서 엽니다.
+report server는 이미 생성된 cycle-report 산출물을 보여주는 viewer입니다. 누락된 보고서를 trace DB에서 추측해 새로 합성하는 대체 경로가 아닙니다.
 
 ### AI 에이전트와 사용하는 방법
 
@@ -158,6 +232,7 @@ ender.md 읽고 세션 종료해.
 ```
 
 이 흐름을 따르면 에이전트는 시작, 주제 주입, 구현, 검수, 테스트, 종료 인계를 문서 규약에 맞춰 진행하게 됩니다.
+이후 개발도 한 번에 큰 묶음을 맡기기보다 1회 작업 사이클 단위로 진행하고, 다음 지시는 직전 사이클의 HTML 보고서를 확인한 뒤 내리는 흐름이 가장 안정적입니다.
 
 ### 작업 사이클 별칭
 
@@ -185,13 +260,16 @@ cargo run -p xavi-bootstrap -- trace reserve-alias --cycle <cycle_id> --category
 1. `starter.md`로 현재 세션 역할과 문서 체계를 확인합니다.
 2. 만들 프로젝트의 주제, 사용자, 핵심 기능, 실행 형태를 정합니다.
 3. `inject_subject_once.md`를 통해 주제를 코드와 문서에 처음 주입합니다.
-4. `planning` 역할이 계획을 작성하고, 사용자가 승인하거나 수정합니다.
-5. 실제 sub-agent 도구가 있는 환경에서는 `codegen` 역할의 서브 에이전트가 승인된 계획에 따라 구현합니다.
-6. `review` 역할이 구현 결과를 검수합니다.
-7. `test` 역할이 하네스와 Cargo 명령으로 검증합니다.
-8. 실패가 있으면 `analysis` 역할이 원인을 분석하고 다시 수정 루프로 보냅니다.
-9. 작업이 끝나면 `user-docs`와 `ai-docs`가 각각 사용자 문서와 내부 에이전트 문서를 정리합니다.
-10. 종료 시 `ender.md` 규칙에 따라 정상 종료인지 중간 인계 종료인지 나눕니다.
+4. 이후 개발 요청은 한 번에 끝낼 수 있는 작은 1회 작업 사이클로 나눕니다.
+5. `planning` 역할이 해당 사이클의 계획을 작성하고, 사용자가 승인하거나 수정합니다.
+6. 실제 sub-agent 도구가 있는 환경에서는 `codegen` 역할의 서브 에이전트가 승인된 계획에 따라 구현합니다.
+7. `review` 역할이 구현 결과를 검수합니다.
+8. `test` 역할이 하네스와 Cargo 명령으로 검증합니다.
+9. 실패가 있으면 `analysis` 역할이 원인을 분석하고 다시 수정 루프로 보냅니다.
+10. 작업이 끝나면 `user-docs`와 `ai-docs`가 각각 사용자 문서와 내부 에이전트 문서를 정리합니다.
+11. `cycle-report`가 해당 1회 작업 사이클의 HTML/JSON 보고서 산출물을 만들고, `xavi-dev-console` report server가 해당 HTML 보고서를 브라우저에서 열어 확인합니다.
+12. 사용자는 보고서의 요청 원문, 역할별 반환, 테스트 결과, 코드 변경 요약, audit/evidence 경고를 확인한 뒤 다음 사이클 지시를 냅니다.
+13. 종료 시 `ender.md` 규칙에 따라 정상 종료인지 중간 인계 종료인지 나눕니다.
 
 ### 장점
 
@@ -224,7 +302,14 @@ AI가 혼자 계획, 구현, 검수, 테스트, 문서화를 모두 처리하면
 - 구현 후에는 반드시 `cargo test --workspace`와 하네스 테스트를 확인하세요.
 - 테스트 실패를 바로 고치기보다, `analysis` 역할에 원인을 먼저 정리하게 하세요.
 - 세션이 길어지면 `ender.md`로 중간 인계를 남기고 새 세션에서 이어가세요.
+- Codex 세션이 길어져 context compact 이후 이어갈 때는, 문제가 생겨도 fallback 방식으로 우회하지 말고 먼저 보고하라는 조건을 짧게 다시 붙여 주는 것이 좋습니다.
 - 사용자용 문서와 AI 내부 문서를 섞지 마세요. 사람에게 필요한 문서는 `docs/human/`, 에이전트 운영 문서는 `docs/agent/`에 둡니다.
+
+context compact 이후 이어서 작업할 때는 아래처럼 덧붙일 수 있습니다.
+
+```text
+구현 중 문제가 생기면 fallback 방식으로 우회하지 말고 즉시 보고해줘. 내가 승인하기 전에는 다른 방식으로 대체 구현하지 마.
+```
 
 ### 기대할 수 있는 효과
 
@@ -245,7 +330,9 @@ AI가 혼자 계획, 구현, 검수, 테스트, 문서화를 모두 처리하면
 - 실제 서브 에이전트 생성 가능 여부는 사용 중인 AI 런타임과 상위 정책에 달려 있습니다. 이 저장소의 문서 규약은 도구가 있는 환경에서 실제 서브 에이전트 사용을 요구하지만, 없는 도구를 만들어내지는 못합니다.
 - 도구나 정책이 막는 경우 이 저장소의 규칙은 fallback 구현을 허용하지 않습니다. 제한을 보고하고 멈춘 뒤 운영 방식이나 도구 사용 문제를 수정 대상으로 삼아야 합니다.
 - 현재 예제 코드는 health-check 수준입니다. 실제 프로젝트 주제는 사용자가 주입해야 합니다.
-- 공개 저장소로 사용할 때는 개인 경로, 로컬 서버 주소, 비밀 키, `.env` 파일이 들어가지 않게 확인해야 합니다.
+- 이 부트스트랩은 브라우저 제어 보조 구현이나 브라우저 자동화 기능을 포함하지 않습니다. 현재 사용자-facing 흐름의 기준은 역할별 작업 증거, cycle-report 산출물, 로컬 report server와 HTML 보고서 viewer 확인입니다.
+- 로컬 HTML report viewer와 report server 기능을 포함하기 때문에 초기 파일 수와 용량은 단순 health-check 부트스트랩보다 큽니다. 이 증가는 사이클 증거를 사람이 확인하기 위한 보고서 기능 때문이며, 브라우저 제어 자동화 기능을 뜻하지 않습니다.
+- 공개 저장소로 사용할 때는 개인/세션별 임시 로컬 URL, 포트, PID, machine-specific endpoint, 개인 경로, 비밀 키, `.env` 파일, 그리고 `.xavi/` 와 `target/` 같은 로컬 산출물이 소스 배포물에 섞이지 않게 확인해야 합니다. 문서화된 기본 `127.0.0.1:4200` report server는 정상 기능이며 제거하거나 배포 제외 대상으로 볼 항목이 아닙니다. 이는 기능 제거가 아니라 배포 패키징과 ignore 상태를 확인하는 주의사항입니다.
 - 이 저장소는 실행 바이너리를 포함하므로 `Cargo.lock` 을 함께 커밋하는 것을 권장합니다. 공개 전에 lockfile이 누락되지 않았는지 확인하세요.
 
 ### 저장소 구조
@@ -295,6 +382,8 @@ AI가 혼자 계획, 구현, 검수, 테스트, 문서화를 모두 처리하면
 
 Unlike a normal template that only provides folders and example code, this repository also defines how AI agents should work. The user first defines a project subject, then AI agents follow `starter.md`, `inject_subject_once.md`, `ender.md`, and the `docs/agent/` role documentation to split work across analysis, planning, implementation, review, testing, and documentation.
 
+This bootstrap exists to reduce a common problem with Codex, Claude Code, and similar AI coding tools: long unconstrained runs can make it hard to later find where a mistake began, how the code actually works, and why debugging became stressful. The repository introduces the idea of a `single work cycle` so development does not turn into endless unattended AI work. Each cycle should end with developer review, especially through the HTML report, showing how the AI understood the prompt, which sub-agents were created, what instructions and context they received, what they returned, how `orchestra` accepted or continued the work, and what verification happened.
+
 The current codebase is a small Rust clean architecture workspace with a health-check example. It is not a finished product. It is a starting point for safely growing a real product.
 
 ### What Is It For?
@@ -309,10 +398,24 @@ This bootstrap is designed to:
 
 ### Core Idea
 
-This repository provides two things together.
+You can understand this repository through these core keywords.
 
-1. A Rust clean architecture code skeleton
-2. Role-based operating documents for AI collaboration
+1. **Clean Architecture Skeleton:** Start with a maintainable Rust clean architecture structure.
+2. **Role-Based AI Collaboration:** Split planning, implementation, review, testing, documentation, and reporting by role.
+3. **Separated Docs:** Keep human-facing development docs separate from AI-agent restart/development helper docs.
+4. **Orchestra Main Agent:** `orchestra` talks with the developer, preserves context, and delegates real work to sub-agents.
+5. **Sub-Agent Workflow:** `planning`, `codegen`, `review`, `test`, `analysis`, `user-docs`, `ai-docs`, and `cycle-report` each handle one responsibility.
+6. **Single Work Cycle:** Replace endless AI work with small units that a developer can review.
+7. **HTML Cycle Report:** Store each cycle's evidence locally and inspect the result through an HTML report.
+
+### Why Include An Internal DB And Frontend Server?
+
+This repository is a bootstrap for a development workflow, not a finished product feature set.
+The internal SQLite DB and local frontend report server are not your product backend or product frontend. They are bootstrap operation tools for reviewing each `single work cycle`.
+
+- **Internal DB:** Stores user prompt originals, sub-agent instructions, returned results, test results, and code-change summaries as local evidence.
+- **Frontend report server:** Opens the stored evidence and cycle-report artifacts as an HTML screen for fast developer review.
+- **How to use it:** When a cycle ends, inspect the automatically opened HTML report, confirm what the AI understood, what changed, and what was verified, then give the next instruction.
 
 The code keeps these layers:
 
@@ -321,7 +424,7 @@ The code keeps these layers:
 - `crates/xavi-infrastructure`: external system adapters
 - `crates/xavi-harness`: scenario-based verification harness
 - `apps/xavi-bootstrap`: executable entrypoint and composition root
-- `apps/xavi-dev-console`: bootstrap operations support tool for viewing `development_trace` and cycle report artifacts
+- `apps/xavi-dev-console`: bootstrap operations support tool for viewing `development_trace` and cycle-report artifacts through a local UI and report server
 
 The documentation keeps these roles:
 
@@ -333,7 +436,31 @@ The documentation keeps these roles:
 - `analysis`: root-cause analysis for test failures
 - `user-docs`: human-facing documentation
 - `ai-docs`: internal AI-agent documentation
+- `cycle-report`: report role that records one work cycle's evidence and result as HTML/JSON/raw/audit/context artifacts
+- `dev-console`: support role for local viewing of `development_trace` and cycle-report artifacts
 - `ephemeral`: temporary research or support tasks
+
+### Single Work Cycle At A Glance
+
+Development is meant to move through small cycles like this:
+
+```text
+User request -> orchestra understanding/breakdown -> planning -> user approval -> codegen -> review -> test -> docs(user-docs/ai-docs) -> cycle-report -> HTML report review -> next cycle instruction
+```
+
+From the developer workflow perspective, a cycle is not complete until the HTML report has been generated, opened in the browser, and inspected by the developer.
+If the developer ignores the report and jumps straight to the next request, the main reason for this workflow is lost: keeping AI work in evidence-backed units that a person can review.
+
+In the report, inspect:
+
+- The original user prompt
+- How the AI interpreted and broke down the request
+- The instructions and context sent to each sub-agent
+- Each sub-agent result
+- How `orchestra` accepted the result and chose the next action
+- Test and verification results
+- Code-change summary
+- Audit status and missing-evidence warnings
 
 ### Current State
 
@@ -344,7 +471,9 @@ The repository is currently a small runnable scaffold.
 - `xavi-bootstrap` composes and runs a health-check service.
 - `xavi-harness` tests health-check scenarios.
 - AI role documents and session shutdown documents are included.
-- The `development_trace` ledger and cycle report/dev-console operating contracts are included.
+- The `development_trace` DB is the intended foundation for work-cycle evidence storage, trace audit/export, cycle-report generation, and dev-console display.
+- The repository includes the `cycle-report` flow, `xavi-dev-console`, and a local frontend report server.
+- A normal single work cycle includes generating the cycle-report `index.html` report and opening that HTML report in the browser through the report server.
 - Development cycles can reserve and resolve short human-readable aliases.
 
 This is the stable starting point before injecting a concrete project subject.
@@ -378,6 +507,38 @@ Expected runtime output should look similar to this:
 ```text
 xavi-bootstrap initialized: status=Healthy, message=bootstrap completed
 ```
+
+### Work-Cycle Evidence And HTML Reports
+
+A single work cycle is the unit for one small development goal: planning, user approval, implementation, review, testing, documentation cleanup, cycle-report generation, and HTML report review.
+Development requests should be scoped to these small work cycles whenever possible. Large requests should normally be split across multiple cycles.
+From the developer workflow perspective, the cycle is not considered finished until the HTML report has been opened and inspected.
+
+The intended cycle record includes the original user request, role dispatches and returns, verification results, and change summaries in the `development_trace` DB.
+Original user prompts are also stored automatically as work-cycle evidence in the internal local SQLite DB at `.xavi/development_trace.sqlite3`.
+This DB is not a throwaway log. It is the intended foundation for building each cycle's HTML/JSON report and dev-console view from the same source evidence.
+
+When one work cycle closes, `cycle-report` writes HTML/JSON report artifacts under `.xavi/reports/development_cycles/<cycle_id>/`.
+The primary human-facing report is `index.html`, alongside structured files such as `report.json`, `raw.json`, `audit.json`, and `context.md`.
+In the normal flow, the local report server may automatically open this HTML report in your browser. If a local report page appears, treat it as part of the work. It is not an advertisement page or an external upload screen; it is a local artifact viewer for the already generated cycle-report files.
+
+By default, the trace DB and cycle-report artifacts stay inside local project folders such as `.xavi/development_trace.sqlite3` and `.xavi/reports/development_cycles/<cycle_id>/`.
+The bootstrap code does not automatically upload or transmit them to an external server.
+Those artifacts can still be exposed if you directly share, commit, or upload `.xavi`, use export/copy commands such as `export --out`, share trace export output, or bind the report server to an externally reachable address instead of local `127.0.0.1`.
+Avoid putting secrets, tokens, passwords, or private personal data into prompts unless you accept local evidence retention.
+
+Use the report to check the original user request, AI interpretation, role dispatches and returns, `orchestra` acceptance and next action, test results, code-change summaries, audit status, and missing-evidence warnings.
+Before giving the next change request, refer to what the report got right, what it got wrong, and what needs more explanation.
+The report is not decorative. It is the shared evidence screen that helps the user and AI choose the next cycle.
+
+To open an existing cycle report, use:
+
+```bash
+cargo run -p xavi-dev-console -- open-cycle --cycle-id <cycle-id>
+```
+
+By default, this command reuses or starts the local report server at `127.0.0.1:4200`, then opens `/reports/<cycle-id>/` in the browser.
+The report server is a viewer for existing cycle-report artifacts. It is not a fallback path that guesses or synthesizes a missing report from the trace DB.
 
 ### How To Use It With An AI Agent
 
@@ -445,6 +606,7 @@ Read ender.md and close the session.
 ```
 
 This keeps startup, subject injection, implementation, review, testing, and handoff aligned with the repository rules.
+For ongoing development, keep working in one-work-cycle units rather than one large batch, and give the next instruction after checking the previous cycle's HTML report.
 
 ### Cycle Aliases
 
@@ -472,13 +634,16 @@ If `aliases.json` is malformed, the report server fails closed and shows an erro
 1. Use `starter.md` to identify the current session role and documentation system.
 2. Define the project subject, users, core features, and runtime shape.
 3. Use `inject_subject_once.md` to inject the subject into code and documentation.
-4. Let the `planning` role write a plan, then approve or revise it.
-5. When real sub-agent tools are available, let the `codegen` sub-agent implement the approved plan.
-6. Let the `review` role inspect the implementation.
-7. Let the `test` role run harness and Cargo verification.
-8. If tests fail, let the `analysis` role identify the root cause before another fix.
-9. When the cycle is complete, let `user-docs` and `ai-docs` update human-facing and internal documentation.
-10. At shutdown, use `ender.md` to classify the session as a normal close or an interrupted handoff.
+4. Split later development requests into small single-work-cycle units.
+5. Let the `planning` role write the plan for that cycle, then approve or revise it.
+6. When real sub-agent tools are available, let the `codegen` sub-agent implement the approved plan.
+7. Let the `review` role inspect the implementation.
+8. Let the `test` role run harness and Cargo verification.
+9. If tests fail, let the `analysis` role identify the root cause before another fix.
+10. When the cycle is complete, let `user-docs` and `ai-docs` update human-facing and internal documentation.
+11. Let `cycle-report` create the HTML/JSON report artifacts for that single work cycle, then let the `xavi-dev-console` report server open the HTML report in the browser.
+12. Check the report's original request, role returns, test results, code-change summary, and audit/evidence warnings before giving the next cycle instruction.
+13. At shutdown, use `ender.md` to classify the session as a normal close or an interrupted handoff.
 
 ### Advantages
 
@@ -511,7 +676,14 @@ The initial code is only a health-check example, but once a subject is injected,
 - Always run `cargo test --workspace` and harness-level checks after implementation.
 - Do not rush from a failing test directly into a fix. Ask the `analysis` role to summarize the cause first.
 - Use `ender.md` for handoff when a session gets long.
+- When a Codex session gets long and resumes after context compaction, restate that implementation problems must be reported instead of bypassed through a fallback path.
 - Keep human-facing documents in `docs/human/` and AI operating documents in `docs/agent/`.
+
+After context compaction, you can add a short prompt like this:
+
+```text
+If implementation runs into a problem, do not switch to a fallback or workaround. Report it immediately, and do not implement a different approach until I approve it.
+```
 
 ### Expected Effects
 
@@ -532,7 +704,9 @@ When used properly, this bootstrap should help you:
 - Whether real sub-agents can be created depends on the AI runtime and higher-priority policy in use. This repository's operating documents require real sub-agents when the tool exists, but they cannot create a missing runtime capability.
 - If tools or policy block real sub-agent creation, this repository's rules do not allow fallback implementation. The agent should report the limitation, stop, and treat the operating mode or tool-use problem as the thing to fix.
 - The current sample code is only a health-check flow. The real project subject must be injected by the user.
-- Before publishing, check that no private paths, local server addresses, secrets, or `.env` files are included.
+- This bootstrap does not include browser-control support code or browser automation features. The current human-facing workflow centers on role-based work evidence, cycle-report artifacts, and viewing HTML reports through the local report server.
+- Because this bootstrap includes a local HTML report viewer and report server, the initial file count and repository size are larger than a simple health-check-only bootstrap. That increase exists to let people inspect cycle evidence; it does not mean the repository includes browser-control automation.
+- Before publishing, check that personal or session-specific temporary local URLs, ports, PIDs, machine-specific endpoints, private paths, secrets, `.env` files, and local artifacts such as `.xavi/` and `target/` are not mixed into the source distribution. The documented default `127.0.0.1:4200` report server is a normal feature, not something to remove or exclude from distribution. This is a packaging and ignore-state check, not a reason to remove runtime features.
 - This repository includes an executable binary, so committing `Cargo.lock` is recommended. Before publishing, make sure the lockfile is included.
 
 ### Repository Structure

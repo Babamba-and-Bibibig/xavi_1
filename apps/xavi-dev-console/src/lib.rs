@@ -41,16 +41,6 @@ pub const DEFAULT_OPEN_CYCLE_HOST: &str = "127.0.0.1";
 /// Default report-server port used by `open-cycle`.
 pub const DEFAULT_OPEN_CYCLE_PORT: u16 = 4200;
 
-/// Default macOS Chrome binary path.
-pub const DEFAULT_CHROME_PATH: &str =
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-
-/// Default dedicated Chrome profile used by the dev console.
-pub const DEFAULT_CHROME_PROFILE_PATH: &str = ".xavi/chrome-dev-console-profile";
-
-/// Default CDP remote debugging port used by launched Chrome.
-pub const DEFAULT_REMOTE_DEBUGGING_PORT: u16 = 9223;
-
 const ROLE_LANES: [&str; 10] = [
     "orchestra",
     "planning",
@@ -73,14 +63,21 @@ const SSE_MAX_WINDOW_ENTRIES: usize = 400;
 const REPORT_SOURCE_WINDOW_MULTIPLIER: usize = 4;
 const REPORT_MAX_SOURCE_WINDOW_ENTRIES: usize = 1_000;
 const CYCLE_REPORT_INDEX_FILE: &str = "index.html";
-const CYCLE_REPORT_ARTIFACT_FILES: [&str; 5] =
+const CYCLE_REPORT_DIFF_FILE: &str = "diff.html";
+const CYCLE_REPORT_REQUIRED_ARTIFACT_FILES: [&str; 5] =
     [CYCLE_REPORT_INDEX_FILE, "report.json", "raw.json", "audit.json", "context.md"];
+const CYCLE_REPORT_DIRECT_ARTIFACT_FILES: [&str; 6] = [
+    CYCLE_REPORT_INDEX_FILE,
+    CYCLE_REPORT_DIFF_FILE,
+    "report.json",
+    "raw.json",
+    "audit.json",
+    "context.md",
+];
+const CYCLE_REPORT_BROWSER_ARTIFACT_FILES: [&str; 2] =
+    [CYCLE_REPORT_INDEX_FILE, CYCLE_REPORT_DIFF_FILE];
 const CYCLE_REPORT_ALIAS_INDEX_FILE: &str = "aliases.json";
 const MAX_ACTIVE_CONNECTIONS: usize = 16;
-const CDP_READINESS_ATTEMPTS: usize = 30;
-const CDP_READINESS_INTERVAL: Duration = Duration::from_millis(200);
-const CDP_HTTP_TIMEOUT: Duration = Duration::from_secs(1);
-const CDP_HTTP_MAX_RESPONSE_BYTES: usize = 1_048_576;
 const REPORT_SERVER_HTTP_MAX_RESPONSE_BYTES: usize = 4 * 1024 * 1024;
 /// Maximum bytes read from one cycle-report artifact text file.
 pub const MAX_REPORT_ARTIFACT_BYTES: usize = REPORT_SERVER_HTTP_MAX_RESPONSE_BYTES;
@@ -171,17 +168,6 @@ pub struct DevConsoleConfig {
     pub reports_dir: String,
 }
 
-/// Chrome launch configuration for the CDP-fronted dev console.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChromeLaunchConfig {
-    /// Chrome executable path.
-    pub chrome_path: PathBuf,
-    /// Dedicated user-data-dir for the dev console session.
-    pub profile_dir: PathBuf,
-    /// Local CDP remote debugging port.
-    pub remote_debugging_port: u16,
-}
-
 /// Browser behavior for `open-cycle`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpenCycleBrowserMode {
@@ -256,178 +242,6 @@ pub struct OpenCycleOutcome {
     pub opened_browser: bool,
 }
 
-/// Pure Chrome launch plan used by the process launcher.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChromeLaunchPlan {
-    /// Executable path.
-    pub program: PathBuf,
-    /// Command-line arguments passed to Chrome.
-    pub args: Vec<String>,
-}
-
-/// Chrome process launch and CDP readiness summary.
-#[derive(Debug)]
-pub struct ChromeLaunchOutcome {
-    /// Spawned Chrome process id, when the OS reports one.
-    pub process_id: Option<u32>,
-    /// Local CDP `/json/version` URL.
-    pub version_url: String,
-    /// Whether `/json/version` answered before timeout.
-    pub version_endpoint_ready: bool,
-    /// Whether Chrome wrote `DevToolsActivePort` into the dedicated profile.
-    pub active_port_file_seen: bool,
-    /// Local CDP `/json/list` URL.
-    pub target_list_url: String,
-    /// Verified dev-console Chrome target, when `/json/list` exposes it before timeout.
-    pub target: Option<CdpTargetInfo>,
-}
-
-/// Minimal CDP target metadata exposed by `/json/list`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CdpTargetInfo {
-    /// CDP target id.
-    pub id: Option<String>,
-    /// Chrome target title.
-    pub title: Option<String>,
-    /// Chrome target URL.
-    pub url: String,
-    /// CDP websocket URL for this target, if Chrome exposes one.
-    pub web_socket_debugger_url: Option<String>,
-}
-
-/// Public CDP readiness state exposed to the HTML console.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CdpStatus {
-    /// Summary state for the current server process.
-    pub status: String,
-    /// Spawned Chrome process id, when the server launched Chrome.
-    pub process_id: Option<u32>,
-    /// Local CDP `/json/version` URL, when Chrome launch was requested.
-    pub version_url: Option<String>,
-    /// Whether `/json/version` answered before timeout.
-    pub version_endpoint_ready: bool,
-    /// Whether Chrome wrote `DevToolsActivePort` into the dedicated profile.
-    pub active_port_file_seen: bool,
-    /// Local CDP `/json/list` URL, when Chrome launch was requested.
-    pub target_list_url: Option<String>,
-    /// Verified dev-console Chrome target, when present.
-    pub target: Option<CdpTargetInfo>,
-}
-
-impl CdpStatus {
-    fn not_launched() -> Self {
-        Self {
-            status: "not_launched".to_owned(),
-            process_id: None,
-            version_url: None,
-            version_endpoint_ready: false,
-            active_port_file_seen: false,
-            target_list_url: None,
-            target: None,
-        }
-    }
-
-    fn from_launch_outcome(outcome: &ChromeLaunchOutcome) -> Self {
-        let status = if !outcome.version_endpoint_ready {
-            "cdp_not_ready"
-        } else if outcome.target.is_some() {
-            "target_ready"
-        } else {
-            "target_not_found"
-        };
-
-        Self {
-            status: status.to_owned(),
-            process_id: outcome.process_id,
-            version_url: Some(outcome.version_url.clone()),
-            version_endpoint_ready: outcome.version_endpoint_ready,
-            active_port_file_seen: outcome.active_port_file_seen,
-            target_list_url: Some(outcome.target_list_url.clone()),
-            target: outcome.target.clone(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct DevConsoleServerState {
-    cdp_runtime: CdpRuntimeState,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum CdpRuntimeState {
-    NotLaunched,
-    Launched {
-        process_id: Option<u32>,
-        remote_debugging_port: u16,
-        active_port_path: PathBuf,
-        frontend_url: String,
-        version_url: String,
-        target_list_url: String,
-    },
-}
-
-impl DevConsoleServerState {
-    fn not_launched() -> Self {
-        Self { cdp_runtime: CdpRuntimeState::NotLaunched }
-    }
-
-    fn launched(
-        outcome: &ChromeLaunchOutcome,
-        chrome_config: &ChromeLaunchConfig,
-        frontend_url: &str,
-    ) -> Self {
-        Self {
-            cdp_runtime: CdpRuntimeState::Launched {
-                process_id: outcome.process_id,
-                remote_debugging_port: chrome_config.remote_debugging_port,
-                active_port_path: chrome_config.profile_dir.join("DevToolsActivePort"),
-                frontend_url: frontend_url.to_owned(),
-                version_url: outcome.version_url.clone(),
-                target_list_url: outcome.target_list_url.clone(),
-            },
-        }
-    }
-
-    fn current_cdp_status(&self) -> CdpStatus {
-        let CdpRuntimeState::Launched {
-            process_id,
-            remote_debugging_port,
-            active_port_path,
-            frontend_url,
-            version_url,
-            target_list_url,
-        } = &self.cdp_runtime
-        else {
-            return CdpStatus::not_launched();
-        };
-
-        let active_port_file_seen = active_port_path.exists();
-        let version_endpoint_ready = cdp_version_check(*remote_debugging_port).is_ok();
-        if !version_endpoint_ready {
-            return CdpStatus {
-                status: "cdp_not_ready".to_owned(),
-                process_id: *process_id,
-                version_url: Some(version_url.clone()),
-                version_endpoint_ready,
-                active_port_file_seen,
-                target_list_url: Some(target_list_url.clone()),
-                target: None,
-            };
-        }
-
-        let target = cdp_dev_console_target(*remote_debugging_port, frontend_url).unwrap_or(None);
-        CdpStatus {
-            status: if target.is_some() { "target_ready" } else { "target_not_found" }.to_owned(),
-            process_id: *process_id,
-            version_url: Some(version_url.clone()),
-            version_endpoint_ready,
-            active_port_file_seen,
-            target_list_url: Some(target_list_url.clone()),
-            target,
-        }
-    }
-}
-
 /// A cycle report projected from append-only trace entries.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DevelopmentCycleReport {
@@ -467,20 +281,7 @@ pub struct DevelopmentCycleReport {
 ///
 /// Returns an error when the server cannot bind, read requests, or access the trace DB.
 pub fn run_server(config: &DevConsoleConfig) -> Result<(), Box<dyn Error + Send + Sync>> {
-    run_server_inner(config, None)
-}
-
-/// Runs the local HTTP server and launches a dedicated Chrome CDP frontend.
-///
-/// # Errors
-///
-/// Returns an error when the server cannot bind, Chrome cannot launch, or the trace DB cannot be
-/// read.
-pub fn run_server_with_chrome(
-    config: &DevConsoleConfig,
-    chrome_config: &ChromeLaunchConfig,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    run_server_inner(config, Some(chrome_config))
+    run_server_inner(config)
 }
 
 /// Opens an existing cycle-report artifact in the local report server.
@@ -729,48 +530,10 @@ fn is_connection_refused(error: &(dyn Error + 'static)) -> bool {
     false
 }
 
-fn run_server_inner(
-    config: &DevConsoleConfig,
-    chrome_config: Option<&ChromeLaunchConfig>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+fn run_server_inner(config: &DevConsoleConfig) -> Result<(), Box<dyn Error + Send + Sync>> {
     let listener = TcpListener::bind(&config.bind_addr)?;
     let frontend_url = frontend_url(config);
     println!("xavi-dev-console listening on {frontend_url}");
-
-    let server_state = if let Some(chrome_config) = chrome_config {
-        let outcome = launch_chrome_frontend(chrome_config, &frontend_url)?;
-        let initial_status = CdpStatus::from_launch_outcome(&outcome);
-        println!(
-            "Chrome launched for trace/readback mode: pid={:?}, cdp={}, status={}, ready={}, active_port_file={}, target_checked={}",
-            outcome.process_id,
-            outcome.version_url,
-            initial_status.status,
-            outcome.version_endpoint_ready,
-            outcome.active_port_file_seen,
-            outcome.target.is_some()
-        );
-        if let Some(target) = &outcome.target {
-            println!(
-                "CDP dev-console target: id={}, title={}, url={}, websocket={}",
-                target.id.as_deref().unwrap_or("-"),
-                target.title.as_deref().unwrap_or("-"),
-                target.url,
-                target.web_socket_debugger_url.as_deref().unwrap_or("-")
-            );
-        }
-        if !initial_status.version_endpoint_ready {
-            eprintln!(
-                "CDP readiness check timed out; launch succeeded but attach/capture is outside this MVP"
-            );
-        } else if initial_status.target.is_none() {
-            eprintln!(
-                "CDP target check did not find the dev-console page before timeout; attach/capture is outside this MVP"
-            );
-        }
-        DevConsoleServerState::launched(&outcome, chrome_config, &frontend_url)
-    } else {
-        DevConsoleServerState::not_launched()
-    };
     let active_connections = Arc::new(AtomicUsize::new(0));
 
     for stream in listener.incoming() {
@@ -786,12 +549,11 @@ fn run_server_inner(
                     continue;
                 }
                 let config = config.clone();
-                let server_state = server_state.clone();
                 let active_connections = Arc::clone(&active_connections);
                 thread::spawn(move || {
                     let _permit = ActiveConnectionPermit::new(active_connections);
                     let mut stream = stream;
-                    if let Err(error) = handle_connection(&mut stream, &config, &server_state) {
+                    if let Err(error) = handle_connection(&mut stream, &config) {
                         let _ = write_response(
                             &mut stream,
                             "500 Internal Server Error",
@@ -841,137 +603,8 @@ fn try_reserve_connection(active_connections: &AtomicUsize) -> bool {
     }
 }
 
-/// Launches Chrome with a dedicated profile and waits briefly for CDP readiness.
-///
-/// This MVP launches and verifies the CDP endpoint only. It does not attach to arbitrary target
-/// pages or capture external page actions.
-///
-/// # Errors
-///
-/// Returns an error when the profile directory cannot be created or Chrome cannot be spawned.
-pub fn launch_chrome_frontend(
-    config: &ChromeLaunchConfig,
-    frontend_url: &str,
-) -> Result<ChromeLaunchOutcome, Box<dyn Error + Send + Sync>> {
-    std::fs::create_dir_all(&config.profile_dir)?;
-    let plan = chrome_launch_plan(config, frontend_url);
-    let child = spawn_chrome(&plan)?;
-    let process_id = Some(child.id());
-    let active_port_path = config.profile_dir.join("DevToolsActivePort");
-    let version_url = cdp_version_url(config.remote_debugging_port);
-    let target_list_url = cdp_target_list_url(config.remote_debugging_port);
-    let mut version_endpoint_ready = false;
-    let mut active_port_file_seen = false;
-    let mut target = None;
-
-    for _ in 0..CDP_READINESS_ATTEMPTS {
-        active_port_file_seen = active_port_path.exists();
-        if cdp_version_check(config.remote_debugging_port).is_ok() {
-            version_endpoint_ready = true;
-            if let Ok(found) = cdp_dev_console_target(config.remote_debugging_port, frontend_url) {
-                target = found;
-                if target.is_some() {
-                    break;
-                }
-            }
-        }
-        thread::sleep(CDP_READINESS_INTERVAL);
-    }
-
-    Ok(ChromeLaunchOutcome {
-        process_id,
-        version_url,
-        version_endpoint_ready,
-        active_port_file_seen,
-        target_list_url,
-        target,
-    })
-}
-
-fn spawn_chrome(plan: &ChromeLaunchPlan) -> Result<Child, Box<dyn Error + Send + Sync>> {
-    Ok(Command::new(&plan.program).args(&plan.args).spawn()?)
-}
-
-/// Builds the Chrome process invocation without starting a process.
-#[must_use]
-pub fn chrome_launch_plan(config: &ChromeLaunchConfig, frontend_url: &str) -> ChromeLaunchPlan {
-    ChromeLaunchPlan {
-        program: config.chrome_path.clone(),
-        args: vec![
-            format!("--user-data-dir={}", config.profile_dir.display()),
-            format!("--remote-debugging-port={}", config.remote_debugging_port),
-            "--no-first-run".to_owned(),
-            "--no-default-browser-check".to_owned(),
-            "--new-window".to_owned(),
-            frontend_url.to_owned(),
-        ],
-    }
-}
-
 fn frontend_url(config: &DevConsoleConfig) -> String {
     format!("http://{}?cycle={}", config.bind_addr, url_component_encode(&config.cycle_id))
-}
-
-fn cdp_version_url(port: u16) -> String {
-    format!("http://127.0.0.1:{port}/json/version")
-}
-
-fn cdp_target_list_url(port: u16) -> String {
-    format!("http://127.0.0.1:{port}/json/list")
-}
-
-fn cdp_version_check(port: u16) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let _ = cdp_http_get(port, "/json/version")?;
-    Ok(())
-}
-
-fn cdp_dev_console_target(
-    port: u16,
-    frontend_url: &str,
-) -> Result<Option<CdpTargetInfo>, Box<dyn Error + Send + Sync>> {
-    let body = cdp_http_get(port, "/json/list")?;
-    Ok(cdp_target_from_list_body(&body, frontend_url))
-}
-
-fn cdp_http_get(port: u16, path: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-    let mut stream = TcpStream::connect(("127.0.0.1", port))?;
-    stream.set_read_timeout(Some(CDP_HTTP_TIMEOUT))?;
-    stream.set_write_timeout(Some(CDP_HTTP_TIMEOUT))?;
-    let request =
-        format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
-    stream.write_all(request.as_bytes())?;
-
-    let mut response = Vec::new();
-    let mut buffer = [0_u8; 4096];
-    loop {
-        match stream.read(&mut buffer) {
-            Ok(0) => break,
-            Ok(read) => {
-                response.extend_from_slice(&buffer[..read]);
-                if response.len() > CDP_HTTP_MAX_RESPONSE_BYTES {
-                    return Err(format!("CDP {path} response exceeded size limit").into());
-                }
-                if cdp_response_has_full_content_length_body(&response) {
-                    break;
-                }
-            }
-            Err(error)
-                if matches!(
-                    error.kind(),
-                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
-                ) =>
-            {
-                return Err(format!("CDP {path} timed out waiting for response").into());
-            }
-            Err(error) => return Err(error.into()),
-        }
-    }
-
-    let response = String::from_utf8(response)?;
-    if !response.starts_with("HTTP/1.1 200") && !response.starts_with("HTTP/1.0 200") {
-        return Err(format!("CDP {path} did not return HTTP 200").into());
-    }
-    Ok(response.split_once("\r\n\r\n").map_or(response.clone(), |(_, body)| body.to_owned()))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1011,7 +644,7 @@ fn report_server_http_get(
                     )
                     .into());
                 }
-                if cdp_response_has_full_content_length_body(&response) {
+                if http_response_has_full_content_length_body(&response) {
                     break;
                 }
             }
@@ -1033,14 +666,14 @@ fn report_server_http_get(
     Ok(LocalHttpResponse { status_line, body })
 }
 
-fn cdp_response_has_full_content_length_body(response: &[u8]) -> bool {
-    let Some((header_end, content_length)) = cdp_response_content_length(response) else {
+fn http_response_has_full_content_length_body(response: &[u8]) -> bool {
+    let Some((header_end, content_length)) = http_response_content_length(response) else {
         return false;
     };
     response.len().saturating_sub(header_end) >= content_length
 }
 
-fn cdp_response_content_length(response: &[u8]) -> Option<(usize, usize)> {
+fn http_response_content_length(response: &[u8]) -> Option<(usize, usize)> {
     let header_end = response.windows(4).position(|window| window == b"\r\n\r\n")? + 4;
     let headers = std::str::from_utf8(&response[..header_end]).ok()?;
     let content_length = headers.lines().find_map(|line| {
@@ -1050,53 +683,6 @@ fn cdp_response_content_length(response: &[u8]) -> Option<(usize, usize)> {
             .flatten()
     })?;
     Some((header_end, content_length))
-}
-
-fn cdp_target_from_list_body(body: &str, frontend_url: &str) -> Option<CdpTargetInfo> {
-    json_object_slices(body).into_iter().find_map(|object| {
-        let url = json_string_field(object, "url")?;
-        cdp_url_matches(&url, frontend_url).then(|| CdpTargetInfo {
-            id: json_string_field(object, "id"),
-            title: json_string_field(object, "title"),
-            url,
-            web_socket_debugger_url: json_string_field(object, "webSocketDebuggerUrl"),
-        })
-    })
-}
-
-fn cdp_url_matches(candidate: &str, frontend_url: &str) -> bool {
-    normalized_cdp_target_url(candidate) == normalized_cdp_target_url(frontend_url)
-}
-
-fn normalized_cdp_target_url(value: &str) -> String {
-    let decoded = percent_decode(value);
-    let (without_fragment, fragment) =
-        decoded.split_once('#').map_or((decoded.as_str(), ""), |(url, fragment)| (url, fragment));
-    let (without_query, query) = without_fragment
-        .split_once('?')
-        .map_or((without_fragment, ""), |(url, query)| (url, query));
-    let (authority_and_scheme, path) =
-        split_url_authority_and_path(without_query).unwrap_or((without_query, ""));
-    let normalized_path = if path.is_empty() || path == "/" { "/" } else { path };
-    let mut normalized = format!("{authority_and_scheme}{normalized_path}");
-    if !query.is_empty() {
-        normalized.push('?');
-        normalized.push_str(query);
-    }
-    if !fragment.is_empty() {
-        normalized.push('#');
-        normalized.push_str(fragment);
-    }
-    normalized
-}
-
-fn split_url_authority_and_path(value: &str) -> Option<(&str, &str)> {
-    let scheme_end = value.find("://")?;
-    let authority_start = scheme_end + 3;
-    value[authority_start..].find('/').map_or(Some((value, "")), |relative_index| {
-        let path_start = authority_start + relative_index;
-        Some((&value[..path_start], &value[path_start..]))
-    })
 }
 
 fn json_object_slices(input: &str) -> Vec<&str> {
@@ -1981,21 +1567,42 @@ fn cycle_report_browser_index_file(
     reports_root: impl AsRef<Path>,
     cycle_id: &str,
 ) -> Result<(PathBuf, u64), Box<dyn Error + Send + Sync>> {
-    let report_dir = validate_cycle_report_artifact_bundle_dir(reports_root.as_ref(), cycle_id)?;
-    validate_cycle_report_index_html_file(&report_dir)
+    cycle_report_browser_artifact_file(reports_root, cycle_id, CYCLE_REPORT_INDEX_FILE)
 }
 
-fn validate_cycle_report_index_html_file(
-    canonical_report_dir: &Path,
+fn cycle_report_browser_artifact_file(
+    reports_root: impl AsRef<Path>,
+    cycle_id: &str,
+    file_name: &str,
 ) -> Result<(PathBuf, u64), Box<dyn Error + Send + Sync>> {
-    let index_file =
-        validated_cycle_report_artifact_file(canonical_report_dir, CYCLE_REPORT_INDEX_FILE)?;
-    if index_file.bytes == 0 {
+    if !CYCLE_REPORT_BROWSER_ARTIFACT_FILES.contains(&file_name) {
+        return Err(format!("unsupported cycle-report browser artifact: {file_name}").into());
+    }
+    let report_dir = validate_cycle_report_artifact_bundle_dir(reports_root.as_ref(), cycle_id)?;
+    validate_cycle_report_browser_html_file(&report_dir, file_name)
+}
+
+fn validate_cycle_report_browser_html_file(
+    canonical_report_dir: &Path,
+    file_name: &str,
+) -> Result<(PathBuf, u64), Box<dyn Error + Send + Sync>> {
+    let html_file = validated_cycle_report_artifact_file(canonical_report_dir, file_name)?;
+    if html_file.bytes == 0 {
         return Err(
-            format!("cycle-report index.html is empty: {}", index_file.path.display()).into()
+            format!("cycle-report {file_name} is empty: {}", html_file.path.display()).into()
         );
     }
-    Ok((index_file.path, index_file.bytes))
+    Ok((html_file.path, html_file.bytes))
+}
+
+fn cycle_report_optional_diff_html_present(reports_root: impl AsRef<Path>, cycle_id: &str) -> bool {
+    let Ok(report_dir) = validate_cycle_report_artifact_bundle_dir(reports_root.as_ref(), cycle_id)
+    else {
+        return false;
+    };
+    optional_validated_cycle_report_artifact_file(&report_dir, CYCLE_REPORT_DIFF_FILE)
+        .map(|artifact| artifact.is_some())
+        .unwrap_or(false)
 }
 
 /// Copies an existing cycle-report artifact bundle to another directory.
@@ -2016,9 +1623,14 @@ pub fn copy_cycle_report_artifact_bundle(
         );
     }
     std::fs::create_dir_all(output_dir.as_ref())?;
-    for file_name in CYCLE_REPORT_ARTIFACT_FILES {
+    for file_name in CYCLE_REPORT_REQUIRED_ARTIFACT_FILES {
         let source_file = validated_cycle_report_artifact_file(&source_dir, file_name)?;
         std::fs::copy(source_file.path, output_dir.as_ref().join(file_name))?;
+    }
+    if let Some(diff_file) =
+        optional_validated_cycle_report_artifact_file(&source_dir, CYCLE_REPORT_DIFF_FILE)?
+    {
+        std::fs::copy(diff_file.path, output_dir.as_ref().join(CYCLE_REPORT_DIFF_FILE))?;
     }
     Ok(())
 }
@@ -2035,7 +1647,7 @@ fn validate_cycle_report_artifact_bundle_dir(
 fn ensure_cycle_report_artifact_bundle(
     canonical_report_dir: &Path,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    for file_name in CYCLE_REPORT_ARTIFACT_FILES {
+    for file_name in CYCLE_REPORT_REQUIRED_ARTIFACT_FILES {
         validated_cycle_report_artifact_file(canonical_report_dir, file_name)?;
     }
     Ok(())
@@ -2151,9 +1763,11 @@ fn optional_validated_cycle_report_artifact_file(
             .into());
         }
     };
-    if file_name == CYCLE_REPORT_INDEX_FILE && symlink_metadata.file_type().is_symlink() {
+    if CYCLE_REPORT_BROWSER_ARTIFACT_FILES.contains(&file_name)
+        && symlink_metadata.file_type().is_symlink()
+    {
         return Err(format!(
-            "cycle-report index.html must not be a symlink: {}",
+            "cycle-report {file_name} must not be a symlink: {}",
             artifact_path.display()
         )
         .into());
@@ -2289,7 +1903,7 @@ fn validate_cycle_report_id(cycle_id: &str) -> Result<(), Box<dyn Error + Send +
 fn validate_cycle_report_artifact_file_name(
     file_name: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    if CYCLE_REPORT_ARTIFACT_FILES.contains(&file_name) {
+    if CYCLE_REPORT_DIRECT_ARTIFACT_FILES.contains(&file_name) {
         Ok(())
     } else {
         Err(format!("unsupported cycle-report artifact file: {file_name}").into())
@@ -2370,7 +1984,7 @@ macro_rules! render_cycle_report_index_html_impl {
     );
     let latest_raw = latest_json.map_or_else(String::new, html_escape);
     let aliases_raw = aliases_json.map_or_else(String::new, html_escape);
-    let mut html = r#"<!doctype html>
+    let mut html = r##"<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -2555,7 +2169,7 @@ document.getElementById('manual-refresh').addEventListener('click', () => {
 });
 </script>
 </body>
-</html>"#
+</html>"##
         .to_owned();
     html = html.replace("__LATEST_STATUS__", &html_escape(&latest_status));
     html = html.replace("__ALIASES_STATUS__", &html_escape(&aliases_status));
@@ -2595,7 +2209,10 @@ pub fn render_cycle_report_artifact_html(artifact: &CycleReportArtifact) -> Stri
         summary.cycle_category_key.as_deref().unwrap_or("category_key 없음").to_owned();
     let cycle_sequence_label =
         summary.cycle_sequence.as_deref().unwrap_or("sequence 없음").to_owned();
-    let audit_status_label = summary.audit_status.as_deref().unwrap_or("audit status 없음");
+    let audit_reliability_label =
+        audit_reliability_label(summary.audit_status.as_deref(), &summary.evidence_status);
+    let audit_reliability_description =
+        audit_reliability_description(summary.audit_status.as_deref(), &summary.evidence_status);
     let evidence_warning = render_evidence_status_warning(&summary);
     let workflow_map = render_cycle_report_workflow_map(&summary);
     let user_request_verbatim = render_verbatim_evidence_block(
@@ -2608,11 +2225,12 @@ pub fn render_cycle_report_artifact_html(artifact: &CycleReportArtifact) -> Stri
     let role_board =
         render_cycle_report_role_board(&artifact.report_json, artifact.raw_json.as_deref());
     let command_evidence = render_command_evidence_view(artifact);
-    let code_changes = render_code_changes_diff_view(&artifact.report_json);
+    let code_change_index =
+        render_code_changes_index_view(&artifact.report_json, &artifact.cycle_id);
     let derived_summaries = render_derived_summaries(&artifact.report_json);
     let evidence_audit = render_evidence_audit(artifact);
     let raw_details = render_artifact_details(artifact);
-    let mut html = r#"<!doctype html>
+    let mut html = r##"<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -2676,7 +2294,7 @@ a { color: inherit; }
 }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
 .report-shell {
-  width: min(1180px, calc(100% - 32px));
+  width: calc(100% - 32px);
   margin: 0 auto;
   padding: 22px 0 38px;
   display: grid;
@@ -2707,10 +2325,36 @@ a { color: inherit; }
 }
 .metric strong { font-size: 20px; }
 .metric span { color: var(--muted); font-size: 12px; }
+.metric p { margin: 0; color: #3b4048; line-height: 1.5; overflow-wrap: anywhere; }
 .section { display: grid; gap: 10px; }
 .section h2 { margin: 0; font-size: 18px; }
+.sticky-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.96);
+}
+.sticky-nav a {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  text-decoration: none;
+  background: #ffffff;
+  color: var(--ink);
+}
+.section-intro { margin: 0; color: var(--muted); line-height: 1.55; }
 .grid-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .grid-many { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.record-list { display: grid; gap: 10px; width: 100%; }
 .report-card,
 .flow-card,
 .role-card {
@@ -2732,6 +2376,10 @@ a { color: inherit; }
 .report-card p,
 .flow-card p,
 .role-card p { margin: 0; color: #3b4048; line-height: 1.58; overflow-wrap: anywhere; white-space: pre-wrap; }
+.user-request-card {
+  min-height: 0;
+  width: 100%;
+}
 .warning-banner {
   border: 1px solid #e0b36a;
   border-radius: 6px;
@@ -2740,6 +2388,10 @@ a { color: inherit; }
   padding: 10px 12px;
   line-height: 1.55;
 }
+.warning-banner strong,
+.warning-banner p { margin: 0; }
+.warning-banner p + p,
+.warning-banner details { margin-top: 8px; }
 .derived-label {
   color: var(--warn);
   font-size: 12px;
@@ -2766,11 +2418,74 @@ a { color: inherit; }
 .evidence-details pre {
   margin-top: 10px;
 }
+.verbatim-evidence {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.evidence-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .evidence-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 8px;
+}
+.metadata-table {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.metadata-table th,
+.metadata-table td {
+  border-top: 1px solid var(--line);
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.metadata-table th {
+  width: 180px;
+  color: var(--muted);
+  font-weight: 700;
+}
+.technical-details {
+  width: 100%;
+}
+.audit-panel {
+  display: grid;
+  gap: 10px;
+}
+.audit-readable {
+  border: 1px solid #e0b36a;
+  border-radius: 6px;
+  background: var(--warn-soft);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+.audit-readable strong { font-size: 18px; }
+.audit-readable p { margin: 0; color: #3b4048; line-height: 1.58; overflow-wrap: anywhere; }
+.audit-fields {
+  display: grid;
+  gap: 10px;
+}
+.audit-diagnostic-details {
+  border-color: #b8cce6;
+  background: var(--blue-soft);
+}
+.audit-diagnostic-details summary {
+  color: var(--blue);
+}
+.audit-diagnostic-details p {
+  margin: 8px 0 0;
+  color: #3b4048;
+  line-height: 1.58;
+  overflow-wrap: anywhere;
 }
 .delegation-list { display: grid; gap: 10px; }
 .delegation-card {
@@ -2853,12 +2568,16 @@ summary { cursor: pointer; font-weight: 700; }
 pre {
   margin: 12px 0 0;
   overflow: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  white-space: pre;
   background: #f8f9fa;
   border-radius: 6px;
   padding: 12px;
   line-height: 1.55;
+}
+pre.evidence-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .missing { color: var(--muted); }
 @media (max-width: 860px) {
@@ -2884,10 +2603,23 @@ pre {
 <main class="report-shell">
   <section class="hero">
     <h1>사이클 전체 evidence 보고서</h1>
-    <p>cycle 종료 직후 생성된 공개 artifact의 원문 evidence, diff hunk, audit 실패, 제외 사유를 기본 화면에 그대로 표시합니다.</p>
-    <p>요약과 changed_files는 derived/display 보조 정보이며, 원문이 없으면 복원하지 않고 missing/incomplete/fail 상태를 그대로 보여줍니다.</p>
+    <p>cycle 종료 직후 생성된 공개 artifact의 사용자 요청 원문, 보고서 신뢰성 검증 상태, 역할별 dispatch/return, 명령 evidence를 기본 화면에 그대로 표시합니다.</p>
+    <p>전체 diff hunk는 이 화면에 렌더링하지 않고 전용 prebuilt artifact인 diff.html에서 확인합니다.</p>
+    <p>요약과 changed_files는 derived/display 보조 정보이며, 원문이 없으면 복원하지 않고 원문 증거 상태를 그대로 보여줍니다.</p>
     __EVIDENCE_STATUS_WARNING__
   </section>
+
+  <nav class="sticky-nav" aria-label="보고서 anchor navigation">
+    <a href="#status-title">상태</a>
+    <a href="#evidence-title">사용자 요청</a>
+    <a href="#workflow-title">작업 흐름</a>
+    <a href="#delegations-title">dispatch evidence</a>
+    <a href="#roles-title">return evidence</a>
+    <a href="#verification-title">command evidence</a>
+    <a href="#files-title">changed_files</a>
+    <a href="#diff-title">diff.html</a>
+    <a href="#raw-title">raw/context</a>
+  </nav>
 
   <section class="section" aria-labelledby="status-title">
     <h2 id="status-title">사이클 상태</h2>
@@ -2895,22 +2627,27 @@ pre {
       <article class="metric __STATUS_CLASS__"><span>상태</span><strong>__STATUS_LABEL__</strong></article>
       <article class="metric"><span>cycle_id</span><strong>__CYCLE_ID__</strong></article>
       <article class="metric"><span>cycle_alias</span><strong>__CYCLE_ALIAS__</strong></article>
-      <article class="metric"><span>evidence_status</span><strong>__EVIDENCE_STATUS__</strong></article>
+      <article class="metric">
+        <span>보고서 신뢰성 검증</span>
+        <strong>__AUDIT_RELIABILITY_LABEL__</strong>
+        <p>__AUDIT_RELIABILITY_DESCRIPTION__</p>
+      </article>
     </div>
     <div class="grid-many">
       <article class="report-card"><span>cycle_title</span><strong>__CYCLE_TITLE__</strong></article>
       <article class="report-card"><span>cycle_category</span><strong>__CYCLE_CATEGORY__</strong></article>
       <article class="report-card"><span>cycle_category_key</span><strong>__CYCLE_CATEGORY_KEY__</strong></article>
       <article class="report-card"><span>cycle_sequence</span><strong>__CYCLE_SEQUENCE__</strong></article>
-      <article class="report-card"><span>audit.status</span><strong>__AUDIT_STATUS__</strong></article>
+      <article class="report-card"><span>evidence_status</span><strong>__EVIDENCE_STATUS__</strong></article>
     </div>
   </section>
 
   <section class="section" aria-labelledby="evidence-title">
-    <h2 id="evidence-title">전체 원문 evidence</h2>
+    <h2 id="evidence-title">사용자 요청 원문</h2>
+    <p class="section-intro">사용자가 실제로 요청한 원문을 먼저 전체 폭으로 보여줍니다. source_ref, hash, timestamp 같은 검증 메타데이터는 본문 읽기를 방해하지 않도록 아래 접힘 표에 보존합니다.</p>
     __USER_REQUEST_EVIDENCE_WARNING__
-    <div class="grid-two">
-      <article class="report-card">
+    <div class="record-list">
+      <article class="report-card user-request-card">
         <span>원문 evidence</span>
         <strong>user_request_verbatim</strong>
         __USER_REQUEST_VERBATIM__
@@ -2988,8 +2725,8 @@ pre {
   </section>
 
   <section class="section" aria-labelledby="diff-title">
-    <h2 id="diff-title">전체 diff hunk</h2>
-    __CODE_CHANGES__
+    <h2 id="diff-title">Diff 전용 artifact 색인</h2>
+    __CODE_CHANGE_INDEX__
   </section>
 
   <section class="section" aria-labelledby="derived-title">
@@ -2998,7 +2735,7 @@ pre {
   </section>
 
   <section class="section" aria-labelledby="evidence-audit-title">
-    <h2 id="evidence-audit-title">Evidence audit</h2>
+    <h2 id="evidence-audit-title">보고서 신뢰성 검증</h2>
     __EVIDENCE_AUDIT__
   </section>
 
@@ -3008,7 +2745,7 @@ pre {
   </section>
 </main>
 </body>
-</html>"#
+</html>"##
         .to_owned();
     html = html.replace("__CYCLE_ID__", &html_escape(&artifact.cycle_id));
     html = html.replace("__CYCLE_ID_URL__", &url_component_encode(&artifact.cycle_id));
@@ -3020,7 +2757,9 @@ pre {
     html = html.replace("__STATUS_CLASS__", cycle_report_status_class(&summary.status));
     html = html.replace("__STATUS_LABEL__", &html_escape(&status_label));
     html = html.replace("__EVIDENCE_STATUS__", &html_escape(&summary.evidence_status));
-    html = html.replace("__AUDIT_STATUS__", &html_escape(audit_status_label));
+    html = html.replace("__AUDIT_RELIABILITY_LABEL__", &html_escape(audit_reliability_label));
+    html = html
+        .replace("__AUDIT_RELIABILITY_DESCRIPTION__", &html_escape(audit_reliability_description));
     html = html.replace("__EVIDENCE_STATUS_WARNING__", &evidence_warning);
     html = html.replace("__USER_REQUEST_EVIDENCE_WARNING__", &user_request_evidence_warning);
     html = html.replace("__USER_REQUEST_VERBATIM__", &user_request_verbatim);
@@ -3038,10 +2777,288 @@ pre {
     html = html.replace("__ORCHESTRA_INSTRUCTION__", &html_escape(&summary.orchestra_instruction));
     html = html.replace("__VERIFICATION_RESULT__", &html_escape(&summary.verification_result));
     html = html.replace("__CHANGED_FILES__", &html_escape(&summary.changed_files));
-    html = html.replace("__CODE_CHANGES__", &code_changes);
+    html = html.replace("__CODE_CHANGE_INDEX__", &code_change_index);
     html = html.replace("__DERIVED_SUMMARIES__", &derived_summaries);
     html = html.replace("__EVIDENCE_AUDIT__", &evidence_audit);
     html.replace("__RAW_DETAILS__", &raw_details)
+}
+
+/// Renders the prebuilt diff-only cycle-report artifact.
+///
+/// The report server serves this file directly from `diff.html`; it must not synthesize it from
+/// `report.json` on request.
+#[must_use]
+#[allow(clippy::too_many_lines)]
+pub fn render_cycle_report_diff_html(artifact: &CycleReportArtifact) -> String {
+    let summary = CycleReportArtifactSummary::from_artifact(artifact);
+    let evidence_warning = render_evidence_status_warning(&summary);
+    let file_nav = render_code_changes_diff_nav(&artifact.report_json);
+    let code_changes = render_code_changes_diff_view(&artifact.report_json);
+    let evidence_audit = render_evidence_audit(artifact);
+    let mut html = r##"<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xavi Cycle Report Diff</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f5f6f8;
+  --ink: #20242b;
+  --muted: #646b76;
+  --line: #d9dee6;
+  --panel: #ffffff;
+  --accent: #146c5f;
+  --warn: #94610b;
+  --warn-soft: #fff6e3;
+  --danger-soft: #fff1f1;
+  --good-soft: #eef8f1;
+  --blue-soft: #eef4fb;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+a { color: inherit; }
+.wrap-toggle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.topbar {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
+  background: #ffffff;
+}
+.brand { display: grid; gap: 2px; min-width: 0; }
+.brand strong { font-size: 17px; }
+.brand span { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.btn {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 0 12px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+#wrap-toggle:checked ~ .topbar label[for="wrap-toggle"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+.shell {
+  width: calc(100vw - 24px);
+  margin: 0 auto;
+  padding: 18px 0 34px;
+  display: grid;
+  gap: 18px;
+}
+.hero {
+  display: grid;
+  gap: 10px;
+  padding: 8px 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.hero h1 { margin: 0; font-size: 30px; line-height: 1.12; letter-spacing: 0; }
+.hero p { margin: 0; color: #3b4048; line-height: 1.6; max-width: 960px; }
+.warning-banner {
+  border: 1px solid #e0b36a;
+  border-radius: 6px;
+  background: var(--warn-soft);
+  color: #6f4700;
+  padding: 10px 12px;
+  line-height: 1.55;
+}
+.sticky-nav {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.96);
+}
+.sticky-nav a {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  text-decoration: none;
+  background: #ffffff;
+}
+.section { display: grid; gap: 10px; }
+.section h2 { margin: 0; font-size: 18px; }
+.report-card {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+.report-card span { color: var(--muted); font-size: 12px; }
+.report-card p { margin: 0; color: #3b4048; line-height: 1.58; overflow-wrap: anywhere; }
+.grid-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.diff-file {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  overflow: hidden;
+}
+.diff-file + .diff-file { margin-top: 12px; }
+.diff-file-header {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  background: #fbfcfd;
+}
+.diff-file-title { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.diff-file-title strong { overflow-wrap: anywhere; }
+.diff-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+.diff-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 8px;
+  color: var(--muted);
+  background: #ffffff;
+  font-size: 12px;
+}
+.diff-summary { margin: 0; color: #3b4048; line-height: 1.55; overflow-wrap: anywhere; }
+.derived-label { color: var(--warn); font-size: 12px; font-weight: 700; }
+.diff-hunk { display: grid; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+.diff-hunk:first-of-type { border-top: 0; }
+.diff-hunk-heading {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  color: #2d5c88;
+}
+.diff-hunk-summary,
+.diff-explanations { margin: 0; color: #3b4048; line-height: 1.55; overflow-wrap: anywhere; }
+.diff-explanations { display: grid; gap: 6px; padding: 8px 10px; background: var(--blue-soft); border-radius: 6px; }
+.code-viewport {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+}
+.diff-table {
+  display: grid;
+  min-width: max-content;
+}
+.diff-line {
+  display: grid;
+  grid-template-columns: 72px 72px minmax(720px, max-content);
+  min-height: 28px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.diff-line span { padding: 4px 8px; border-right: 1px solid rgba(0,0,0,0.06); }
+.diff-line code {
+  padding: 4px 8px;
+  white-space: pre;
+  overflow-wrap: normal;
+  background: transparent;
+}
+#wrap-toggle:checked ~ .shell .diff-line code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.diff-line.add { background: var(--good-soft); }
+.diff-line.remove { background: var(--danger-soft); }
+.diff-line.context { background: #ffffff; }
+.diff-line .line-no { color: var(--muted); text-align: right; user-select: none; }
+pre {
+  margin: 12px 0 0;
+  overflow: auto;
+  white-space: pre;
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 12px;
+  line-height: 1.55;
+}
+@media (max-width: 860px) {
+  .topbar { align-items: flex-start; flex-direction: column; padding: 12px 14px; }
+  .actions { justify-content: flex-start; }
+  .grid-two { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 25px; }
+}
+</style>
+</head>
+<body>
+<input id="wrap-toggle" class="wrap-toggle" type="checkbox">
+<header class="topbar">
+  <div class="brand">
+    <strong>Xavi cycle diff</strong>
+    <span>__CYCLE_ID__ · diff.html · prebuilt artifact</span>
+  </div>
+  <nav class="actions" aria-label="diff artifact navigation">
+    <a class="btn" href="/reports/__CYCLE_ID_URL__/">메인 report</a>
+    <a class="btn" href="/api/reports/__CYCLE_ID_URL__/report.json">report.json</a>
+    <label class="btn" for="wrap-toggle">줄바꿈</label>
+    <a class="btn primary" href="#diff-files">diff hunk</a>
+  </nav>
+</header>
+<main class="shell">
+  <section class="hero">
+    <h1>Diff 전용 artifact</h1>
+    <p>report.json.code_changes[]의 파일, hunk, line evidence를 이 페이지에서만 전체 렌더링합니다. 메인 report는 이 페이지로 연결되는 색인만 제공합니다.</p>
+    <p>기본은 <code>white-space: pre</code>와 horizontal scroll입니다. 줄바꿈 토글은 표시 방식만 바꾸며 원문 line content를 수정하지 않습니다.</p>
+    __EVIDENCE_STATUS_WARNING__
+  </section>
+  <nav class="sticky-nav" aria-label="diff file and hunk navigation">
+    __FILE_NAV__
+  </nav>
+  <section id="diff-files" class="section" aria-labelledby="diff-files-title">
+    <h2 id="diff-files-title">파일별 diff hunk</h2>
+    __CODE_CHANGES__
+  </section>
+  <section id="diff-audit" class="section" aria-labelledby="diff-audit-title">
+    <h2 id="diff-audit-title">Evidence audit warning</h2>
+    __EVIDENCE_AUDIT__
+  </section>
+</main>
+</body>
+</html>"##
+        .to_owned();
+    html = html.replace("__CYCLE_ID__", &html_escape(&artifact.cycle_id));
+    html = html.replace("__CYCLE_ID_URL__", &url_component_encode(&artifact.cycle_id));
+    html = html.replace("__EVIDENCE_STATUS_WARNING__", &evidence_warning);
+    html = html.replace("__FILE_NAV__", &file_nav);
+    html = html.replace("__CODE_CHANGES__", &code_changes);
+    html.replace("__EVIDENCE_AUDIT__", &evidence_audit)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3688,12 +3705,74 @@ fn render_evidence_status_warning(summary: &CycleReportArtifactSummary) -> Strin
     let warning = summary.evidence_warning.as_deref().unwrap_or(
         "원문 evidence 또는 trace audit이 complete/pass 상태가 아닙니다. 누락/실패 상태를 성공처럼 보정하지 않습니다.",
     );
+    let reliability_label =
+        audit_reliability_label(summary.audit_status.as_deref(), &summary.evidence_status);
+    let reliability_description =
+        audit_reliability_description(summary.audit_status.as_deref(), &summary.evidence_status);
+    let raw_audit_status = summary.audit_status.as_deref().unwrap_or("없음");
     format!(
-        r#"<div class="warning-banner">evidence_status: {} · audit.status: {} · {}</div>"#,
+        r#"<div class="warning-banner">
+  <strong>보고서 신뢰성 검증: {}</strong>
+  <p>{}</p>
+  <p>{}</p>
+  <details class="technical-details">
+    <summary>기술 상세</summary>
+    <table class="metadata-table">
+      <tbody>
+        <tr><th scope="row">audit.status</th><td><code>audit.status={}</code></td></tr>
+        <tr><th scope="row">evidence_status</th><td><code>evidence_status={}</code></td></tr>
+      </tbody>
+    </table>
+  </details>
+</div>"#,
+        html_escape(reliability_label),
+        html_escape(reliability_description),
+        html_escape(warning),
+        html_escape(raw_audit_status),
         html_escape(&summary.evidence_status),
-        html_escape(summary.audit_status.as_deref().unwrap_or("없음")),
-        html_escape(warning)
     )
+}
+
+fn audit_reliability_label<'a>(
+    audit_status: Option<&'a str>,
+    evidence_status: &'a str,
+) -> &'static str {
+    let audit_status = audit_status.unwrap_or("").trim().to_ascii_lowercase();
+    let evidence_status = evidence_status.trim().to_ascii_lowercase();
+    if matches!(audit_status.as_str(), "pass" | "passed" | "ok" | "success")
+        && matches!(evidence_status.as_str(), "complete")
+    {
+        "원문 증거 확인됨"
+    } else if matches!(audit_status.as_str(), "fail" | "failed")
+        || matches!(evidence_status.as_str(), "fail" | "failed" | "incomplete")
+    {
+        "원문 증거 불완전"
+    } else if matches!(audit_status.as_str(), "warn" | "warning")
+        || matches!(evidence_status.as_str(), "warn" | "warning")
+    {
+        "원문 증거 확인 필요"
+    } else {
+        "검증 상태 확인 필요"
+    }
+}
+
+fn audit_reliability_description<'a>(
+    audit_status: Option<&'a str>,
+    evidence_status: &'a str,
+) -> &'static str {
+    let audit_status = audit_status.unwrap_or("").trim().to_ascii_lowercase();
+    let evidence_status = evidence_status.trim().to_ascii_lowercase();
+    if matches!(audit_status.as_str(), "fail" | "failed")
+        || matches!(evidence_status.as_str(), "fail" | "failed" | "incomplete")
+    {
+        "작업 결과가 실패했다는 뜻이 아니라, 보고서가 참조해야 할 일부 원문 증거가 누락되었거나 완전하게 확인되지 않았다는 뜻입니다."
+    } else if matches!(audit_status.as_str(), "pass" | "passed" | "ok" | "success")
+        && matches!(evidence_status.as_str(), "complete")
+    {
+        "보고서가 참조하는 필수 원문 증거가 확인된 상태입니다."
+    } else {
+        "Audit은 작업 성공/실패가 아니라 보고서 신뢰성 검증입니다. 원문 증거 상태를 기술 상세와 함께 확인해야 합니다."
+    }
 }
 
 fn render_missing_user_request_evidence_warning(summary: &CycleReportArtifactSummary) -> String {
@@ -3726,19 +3805,23 @@ fn render_verbatim_evidence_block(
     };
     let agent_id = evidence.agent_id.as_deref().unwrap_or("null");
     format!(
-        r#"<details class="evidence-details" open>
-          <summary>원문 evidence 펼치기/접기</summary>
-          <pre>{}</pre>
-          <div class="evidence-meta">
-            <span class="diff-pill">source_type: {}</span>
-            <span class="diff-pill">source_ref: {}</span>
-            <span class="diff-pill">hash_sha256: {}</span>
-            <span class="diff-pill">role: {}</span>
-            <span class="diff-pill">agent_id: {}</span>
-            <span class="diff-pill">timestamp: {}</span>
-            <span class="diff-pill">order: {}</span>
-          </div>
-        </details>"#,
+        r#"<div class="verbatim-evidence">
+          <pre class="evidence-text">{}</pre>
+          <details class="evidence-details evidence-metadata">
+            <summary>증거 메타데이터</summary>
+            <table class="metadata-table">
+              <tbody>
+                <tr><th scope="row">source_type</th><td>{}</td></tr>
+                <tr><th scope="row">source_ref</th><td>{}</td></tr>
+                <tr><th scope="row">hash_sha256</th><td>{}</td></tr>
+                <tr><th scope="row">role</th><td>{}</td></tr>
+                <tr><th scope="row">agent_id</th><td>{}</td></tr>
+                <tr><th scope="row">timestamp</th><td>{}</td></tr>
+                <tr><th scope="row">order</th><td>{}</td></tr>
+              </tbody>
+            </table>
+          </details>
+        </div>"#,
         html_escape(&evidence.text),
         html_escape(&evidence.source_type),
         html_escape(&evidence.source_ref),
@@ -3990,69 +4073,82 @@ fn trace_audit_command_display_text(artifact: &CycleReportArtifact) -> String {
 
 fn render_evidence_audit(artifact: &CycleReportArtifact) -> String {
     let audit = evidence_audit_display(artifact);
+    let reliability_label =
+        audit_reliability_label(Some(&audit.audit_status), &audit.evidence_status);
+    let reliability_description =
+        audit_reliability_description(Some(&audit.audit_status), &audit.evidence_status);
     format!(
-        r#"<div class="grid-two">
-      <article class="report-card">
-        <span>audit.status</span>
-        <strong>audit status</strong>
-        <pre>{}</pre>
+        r#"<div class="audit-panel">
+      <article class="audit-readable">
+        <span>Audit 뜻: 보고서 신뢰성 검증</span>
+        <strong>{}</strong>
+        <p>{}</p>
+        <p>아래 목록은 작업 결과를 다시 판정하는 영역이 아니라, 보고서가 원문 evidence를 얼마나 완전하게 참조하는지 확인하는 영역입니다.</p>
       </article>
-      <article class="report-card">
-        <span>evidence_status</span>
-        <strong>missing/incomplete/fail 상태</strong>
-        <pre>{}</pre>
-      </article>
-      <article class="report-card">
-        <span>audit.missing_required_inputs</span>
-        <strong>missing required inputs</strong>
-        <pre>{}</pre>
-      </article>
-      <article class="report-card">
-        <span>audit.warnings</span>
-        <strong>warnings</strong>
-        <pre>{}</pre>
-      </article>
-      <article class="report-card">
-        <span>audit.missing_evidence</span>
-        <strong>missing evidence</strong>
-        <pre>{}</pre>
-      </article>
-      <article class="report-card">
-        <span>audit.invalid_evidence</span>
-        <strong>invalid evidence</strong>
-        <pre>{}</pre>
-      </article>
-      <article class="report-card">
-        <span>audit.derived_not_verbatim</span>
-        <strong>derived summary, not verbatim</strong>
-        <pre>{}</pre>
-      </article>
-      <article class="report-card">
-        <span>audit.excluded_code_changes</span>
-        <strong>excluded code changes reason</strong>
-        <pre>{}</pre>
-      </article>
-      <article class="report-card status-failed">
-        <span>trace audit failure</span>
-        <strong>trace_audit/findings</strong>
-        <pre>{}</pre>
-      </article>
-      <article class="report-card status-failed">
-        <span>trace audit command</span>
-        <strong>command raw result</strong>
-        <pre>{}</pre>
-      </article>
+      <div class="audit-fields">
+        <article class="report-card">
+          <span>누락된 원문 evidence 목록</span>
+          <strong>missing evidence</strong>
+          <pre>{}</pre>
+        </article>
+        <article class="report-card">
+          <span>무효 원문 evidence 목록</span>
+          <strong>invalid evidence</strong>
+          <pre>{}</pre>
+        </article>
+        <article class="report-card">
+          <span>원문이 아니라 파생 표시인 필드</span>
+          <strong>derived summary, not verbatim</strong>
+          <pre>{}</pre>
+        </article>
+        <article class="report-card">
+          <span>필수 입력 누락</span>
+          <strong>missing required inputs</strong>
+          <pre>{}</pre>
+        </article>
+        <article class="report-card">
+          <span>검증 경고</span>
+          <strong>warnings</strong>
+          <pre>{}</pre>
+        </article>
+        <article class="report-card">
+          <span>제외된 코드 변경 사유</span>
+          <strong>excluded code changes reason</strong>
+          <pre>{}</pre>
+        </article>
+      </div>
+      <details class="technical-details audit-diagnostic-details">
+        <summary>보고서 신뢰성 진단 기술 상세</summary>
+        <p>아래 원문은 작업 실패 판정이 아니라 trace audit이 보고서 evidence를 점검한 기술 진단입니다.</p>
+        <table class="metadata-table">
+          <tbody>
+            <tr><th scope="row">trace_audit/findings</th><td><pre>{}</pre></td></tr>
+            <tr><th scope="row">trace_audit_command</th><td><pre>{}</pre></td></tr>
+          </tbody>
+        </table>
+      </details>
+      <details class="technical-details">
+        <summary>기술 상세: 원문 audit 필드</summary>
+        <table class="metadata-table">
+          <tbody>
+            <tr><th scope="row">audit.status</th><td><code>audit.status={}</code></td></tr>
+            <tr><th scope="row">evidence_status</th><td><code>evidence_status={}</code></td></tr>
+          </tbody>
+        </table>
+      </details>
     </div>"#,
-        html_escape(&audit.audit_status),
-        html_escape(&audit.evidence_status),
-        html_escape(&audit.missing_required_inputs),
-        html_escape(&audit.warnings),
+        html_escape(reliability_label),
+        html_escape(reliability_description),
         html_escape(&audit.missing_evidence),
         html_escape(&audit.invalid_evidence),
         html_escape(&audit.derived_not_verbatim),
+        html_escape(&audit.missing_required_inputs),
+        html_escape(&audit.warnings),
         html_escape(&audit.excluded_code_changes),
         html_escape(&audit.trace_audit),
-        html_escape(&audit.trace_audit_command)
+        html_escape(&audit.trace_audit_command),
+        html_escape(&audit.audit_status),
+        html_escape(&audit.evidence_status)
     )
 }
 
@@ -4296,6 +4392,123 @@ fn raw_trace_entry_objects(raw_json: &str) -> Vec<String> {
     json_object_slices(&trace_entries).into_iter().map(str::to_owned).collect()
 }
 
+fn render_code_changes_index_view(report_json: &str, cycle_id: &str) -> String {
+    let changes = code_change_objects(report_json);
+    let diff_href = format!("/reports/{}/diff.html", url_component_encode(cycle_id));
+    if changes.is_empty() {
+        return format!(
+            r#"<article class="report-card">
+      <span>code_changes</span>
+      <strong>표시할 diff hunk 색인 없음</strong>
+      <p>report.json에 code_changes 배열이 없거나 비어 있습니다. 메인 화면은 diff를 합성하지 않고 전용 artifact 링크만 유지합니다.</p>
+      <p><a class="btn primary" href="{diff_href}">diff.html 열기</a></p>
+    </article>"#
+        );
+    }
+
+    let items = changes
+        .iter()
+        .enumerate()
+        .map(|(file_index, change)| {
+            let file_path =
+                json_text_field(change, "file_path").unwrap_or_else(|| "파일 경로 없음".to_owned());
+            let language =
+                json_text_field(change, "language").unwrap_or_else(|| "언어 미지정".to_owned());
+            let change_kind =
+                json_text_field(change, "change_kind").unwrap_or_else(|| "unknown".to_owned());
+            let summary_ko = json_text_field(change, "summary_ko")
+                .unwrap_or_else(|| "한국어 변경 설명 없음".to_owned());
+            let file_anchor = code_change_file_anchor(file_index, &file_path);
+            let hunk_links = render_code_change_hunk_index_links(change, &diff_href, file_index);
+            format!(
+                r#"<article class="report-card">
+      <span class="derived-label">derived/display file index, not diff hunk</span>
+      <strong><a href="{}#{}">{}</a></strong>
+      <p>언어: {} · 변경: {}</p>
+      <p>{}</p>
+      {}
+    </article>"#,
+                html_escape(&diff_href),
+                html_escape(&file_anchor),
+                html_escape(&file_path),
+                html_escape(&language),
+                html_escape(&change_kind),
+                html_escape(&summary_ko),
+                hunk_links
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n      ");
+
+    format!(
+        r#"<div class="record-list">
+      <article class="report-card">
+        <span>canonical route</span>
+        <strong><a href="{diff_href}">/reports/{}/diff.html</a></strong>
+        <p>전체 code hunk line은 diff 전용 artifact에서만 렌더링합니다. 아래 항목은 파일과 hunk anchor 색인입니다.</p>
+      </article>
+      {items}
+    </div>"#,
+        html_escape(cycle_id),
+    )
+}
+
+fn render_code_changes_diff_nav(report_json: &str) -> String {
+    let changes = code_change_objects(report_json);
+    if changes.is_empty() {
+        return r##"<a href="#diff-files">diff hunk 없음</a><a href="#diff-audit">audit</a>"##
+            .to_owned();
+    }
+
+    let mut links = Vec::new();
+    links.push(r##"<a href="#diff-files">top</a>"##.to_owned());
+    for (file_index, change) in changes.iter().enumerate() {
+        let file_path =
+            json_text_field(change, "file_path").unwrap_or_else(|| "파일 경로 없음".to_owned());
+        let file_anchor = code_change_file_anchor(file_index, &file_path);
+        links.push(format!(
+            r##"<a href="#{}">{}</a>"##,
+            html_escape(&file_anchor),
+            html_escape(&file_path)
+        ));
+        for (hunk_index, hunk) in json_objects_from_field(change, "hunks").iter().enumerate() {
+            let heading = json_text_field(hunk, "heading").unwrap_or_else(|| "@@".to_owned());
+            let hunk_anchor = code_change_hunk_anchor(file_index, hunk_index);
+            links.push(format!(
+                r##"<a href="#{}">h{}: {}</a>"##,
+                html_escape(&hunk_anchor),
+                hunk_index + 1,
+                html_escape(&heading)
+            ));
+        }
+    }
+    links.push(r##"<a href="#diff-audit">audit</a>"##.to_owned());
+    links.join("\n    ")
+}
+
+fn render_code_change_hunk_index_links(change: &str, diff_href: &str, file_index: usize) -> String {
+    let hunks = json_objects_from_field(change, "hunks");
+    if hunks.is_empty() {
+        return r#"<p>hunk anchor 없음</p>"#.to_owned();
+    }
+    let links = hunks
+        .iter()
+        .enumerate()
+        .map(|(hunk_index, hunk)| {
+            let heading = json_text_field(hunk, "heading").unwrap_or_else(|| "@@".to_owned());
+            let hunk_anchor = code_change_hunk_anchor(file_index, hunk_index);
+            format!(
+                r#"<a class="btn" href="{}#{}">{}</a>"#,
+                html_escape(diff_href),
+                html_escape(&hunk_anchor),
+                html_escape(&heading)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n        ");
+    format!(r#"<div class="actions">{links}</div>"#)
+}
+
 fn render_code_changes_diff_view(report_json: &str) -> String {
     let changes = code_change_objects(report_json);
     if changes.is_empty() {
@@ -4309,7 +4522,8 @@ fn render_code_changes_diff_view(report_json: &str) -> String {
 
     changes
         .iter()
-        .map(|change| {
+        .enumerate()
+        .map(|(file_index, change)| {
             let file_path =
                 json_text_field(change, "file_path").unwrap_or_else(|| "파일 경로 없음".to_owned());
             let language =
@@ -4337,9 +4551,10 @@ fn render_code_changes_diff_view(report_json: &str) -> String {
                 cycle_category.as_deref(),
                 cycle_sequence.as_deref(),
             );
-            let hunks = render_code_change_hunks(change);
+            let file_anchor = code_change_file_anchor(file_index, &file_path);
+            let hunks = render_code_change_hunks(change, file_index);
             format!(
-                r#"<article class="diff-file">
+                r#"<article id="{}" class="diff-file">
       <header class="diff-file-header">
         <div class="diff-file-title">
           <strong>{}</strong>
@@ -4355,6 +4570,7 @@ fn render_code_changes_diff_view(report_json: &str) -> String {
       </header>
       {}
     </article>"#,
+                html_escape(&file_anchor),
                 html_escape(&file_path),
                 html_escape(&language),
                 html_escape(&change_kind),
@@ -4367,6 +4583,38 @@ fn render_code_changes_diff_view(report_json: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n    ")
+}
+
+fn code_change_file_anchor(file_index: usize, file_path: &str) -> String {
+    format!("file-{}-{}", file_index + 1, html_id_fragment(file_path))
+}
+
+fn code_change_hunk_anchor(file_index: usize, hunk_index: usize) -> String {
+    format!("hunk-{}-{}", file_index + 1, hunk_index + 1)
+}
+
+fn html_id_fragment(value: &str) -> String {
+    let mut fragment = String::with_capacity(value.len());
+    let mut previous_dash = false;
+    for character in value.chars() {
+        let normalized = if character.is_ascii_alphanumeric() {
+            previous_dash = false;
+            Some(character.to_ascii_lowercase())
+        } else if matches!(character, '_' | '-') {
+            previous_dash = false;
+            Some(character)
+        } else if previous_dash {
+            None
+        } else {
+            previous_dash = true;
+            Some('-')
+        };
+        if let Some(character) = normalized {
+            fragment.push(character);
+        }
+    }
+    let fragment = fragment.trim_matches('-').to_owned();
+    if fragment.is_empty() { "change".to_owned() } else { fragment }
 }
 
 fn render_code_change_alias_meta(
@@ -4389,7 +4637,7 @@ fn render_code_change_alias_meta(
         .join("\n          ")
 }
 
-fn render_code_change_hunks(change: &str) -> String {
+fn render_code_change_hunks(change: &str, file_index: usize) -> String {
     let hunks = json_objects_from_field(change, "hunks");
     if hunks.is_empty() {
         return r#"<div class="diff-hunk">
@@ -4400,7 +4648,8 @@ fn render_code_change_hunks(change: &str) -> String {
 
     hunks
         .iter()
-        .map(|hunk| {
+        .enumerate()
+        .map(|(hunk_index, hunk)| {
             let heading = json_text_field(hunk, "heading").unwrap_or_else(|| "@@".to_owned());
             let summary_ko =
                 json_text_field(hunk, "summary_ko").unwrap_or_else(|| "hunk 설명 없음".to_owned());
@@ -4410,8 +4659,9 @@ fn render_code_change_hunks(change: &str) -> String {
             let new_lines = json_text_field(hunk, "new_lines").unwrap_or_else(|| "0".to_owned());
             let lines = render_code_change_lines(hunk);
             let explanations = render_code_change_explanations(hunk);
+            let hunk_anchor = code_change_hunk_anchor(file_index, hunk_index);
             format!(
-                r#"<section class="diff-hunk">
+                r#"<section id="{}" class="diff-hunk">
         <div class="diff-hunk-heading">
           <code>{}</code>
           <span class="diff-pill">old {} / {}</span>
@@ -4421,6 +4671,7 @@ fn render_code_change_hunks(change: &str) -> String {
         {}
         {}
       </section>"#,
+                html_escape(&hunk_anchor),
                 html_escape(&heading),
                 html_escape(&old_start),
                 html_escape(&old_lines),
@@ -4438,9 +4689,9 @@ fn render_code_change_hunks(change: &str) -> String {
 fn render_code_change_lines(hunk: &str) -> String {
     let lines = json_objects_from_field(hunk, "lines");
     if lines.is_empty() {
-        return r#"<div class="diff-table">
+        return r#"<div class="code-viewport"><div class="diff-table">
           <div class="diff-line context"><span class="line-no"></span><span class="line-no"></span><code>hunk lines가 비어 있습니다.</code></div>
-        </div>"#
+        </div></div>"#
             .to_owned();
     }
 
@@ -4470,9 +4721,9 @@ fn render_code_change_lines(hunk: &str) -> String {
         .collect::<Vec<_>>()
         .join("\n          ");
     format!(
-        r#"<div class="diff-table">
+        r#"<div class="code-viewport"><div class="diff-table">
           {rows}
-        </div>"#,
+        </div></div>"#,
     )
 }
 
@@ -4567,8 +4818,14 @@ fn json_string_array_field_values(object: &str, key: &str) -> Vec<String> {
 }
 
 fn render_artifact_details(artifact: &CycleReportArtifact) -> String {
-    [
-        ("report.json", Some(artifact.report_json.as_str())),
+    let report_json_link = format!(
+        r#"<details open>
+      <summary>report.json · <a href="/api/reports/{}/report.json">원문 열기</a></summary>
+      <p class="missing">메인 HTML은 report.json 안의 code_changes 전체 hunk를 중복 렌더링하지 않습니다. 구조화 report 원문은 링크로 열고, diff hunk는 diff.html에서 확인합니다.</p>
+    </details>"#,
+        url_component_encode(&artifact.cycle_id),
+    );
+    let other_artifacts = [
         ("raw.json", artifact.raw_json.as_deref()),
         ("audit.json", artifact.audit_json.as_deref()),
         ("context.md", artifact.context_markdown.as_deref()),
@@ -4591,7 +4848,8 @@ fn render_artifact_details(artifact: &CycleReportArtifact) -> String {
         )
     })
     .collect::<Vec<_>>()
-    .join("\n    ")
+    .join("\n    ");
+    format!("{report_json_link}\n    {other_artifacts}")
 }
 
 fn html_escape(value: &str) -> String {
@@ -4844,11 +5102,6 @@ button, input, select, textarea {{ font: inherit; }}
       <section class="section">
         <h2>Realtime</h2>
         <div class="input-panel">
-          <label>CDP Target Check</label>
-          <p class="status">Dedicated Chrome profile/page readiness only. Console, lifecycle, and external target capture are outside this MVP.</p>
-          <div class="decision-list" id="cdp-status">
-            <div class="decision-item">Loading CDP readiness</div>
-          </div>
           <label>Visible Logs</label>
           <p class="status">Shows public trace judgments, role instructions, review notes, and state-transition reasons.</p>
         </div>
@@ -4973,21 +5226,6 @@ function renderDecisionSections(entries) {{
   renderDecisionList('state-log', entries.filter(entry => entry.kind === 'test_summary' || entry.kind === 'agent_return' || entry.kind === 'orchestra_judgment'));
 }}
 
-function renderCdpStatus(status) {{
-  const target = status.target || {{}};
-  const targetLabel = target.url
-    ? `${{target.title || target.id || 'target'}} · ${{target.url}}`
-    : 'No dev-console target verified';
-  const wsLabel = target.webSocketDebuggerUrl || 'not exposed';
-  document.getElementById('cdp-status').innerHTML = `
-    <div class="decision-item">status: ${{escapeHtml(status.status || 'unknown')}}</div>
-    <div class="decision-item">version endpoint: ${{status.version_endpoint_ready ? 'ready' : 'not ready'}}</div>
-    <div class="decision-item">active port file: ${{status.active_port_file_seen ? 'seen' : 'not seen'}}</div>
-    <div class="decision-item">target: ${{escapeHtml(targetLabel)}}</div>
-    <div class="decision-item">webSocketDebuggerUrl: ${{escapeHtml(wsLabel)}}</div>
-  `;
-}}
-
 function render(report) {{
   latestReport = report;
   document.getElementById('cycle-label').textContent = report.cycle_id;
@@ -5042,12 +5280,6 @@ function runTraceRefresh() {{
       traceRefreshInFlight = false;
       if (traceRefreshPending) requestTraceRefresh();
     }});
-}}
-
-async function refreshCdpStatus() {{
-  const response = await fetch('/api/cdp/status');
-  if (!response.ok) throw new Error(await response.text());
-  renderCdpStatus(await response.json());
 }}
 
 function connectEvents() {{
@@ -5122,7 +5354,6 @@ if (latestReport) {{
     setStatus(error.message);
   }});
 }}
-refreshCdpStatus().catch(error => renderCdpStatus({{ status: error.message }}));
 setLiveStatus('Manual refresh mode');
 </script>
 </body>
@@ -5467,12 +5698,6 @@ button { text-align: left; }
         <h2>현재 제한 / 다음 단계</h2>
         <div class="decision-grid">
           <div class="decision-panel">
-            <h3>CDP 대상 상태</h3>
-            <div class="decision-list" id="cdp-status">
-              <div class="decision-item">CDP 상태 확인 중</div>
-            </div>
-          </div>
-          <div class="decision-panel">
             <h3>기존 콘솔 입력 기록</h3>
             <div class="decision-list" id="pending"></div>
           </div>
@@ -5557,11 +5782,7 @@ const STATUS_LABELS = {
   passed: '통과',
   failed: '실패',
   warning: '경고',
-  invalid: '무효',
-  target_ready: '대상 준비됨',
-  target_not_found: '대상 미확인',
-  cdp_not_ready: 'CDP 미준비',
-  not_launched: '실행 안 됨'
+  invalid: '무효'
 };
 
 function text(value) {
@@ -5725,21 +5946,6 @@ function renderDecisionSections(entries) {
   renderDecisionList('state-log', entries.filter(entry => entry.kind === 'test_summary' || entry.kind === 'agent_return' || entry.kind === 'orchestra_judgment'), '공개 반환 요약');
 }
 
-function renderCdpStatus(status) {
-  const target = status.target || {};
-  const targetLabel = target.url
-    ? `${target.title || target.id || '대상'} · ${target.url}`
-    : '개발 콘솔 대상 미확인';
-  const wsLabel = target.webSocketDebuggerUrl || '노출 안 됨';
-  document.getElementById('cdp-status').innerHTML = `
-    <div class="decision-item">상태: ${escapeHtml(statusLabel(status.status || 'unknown'))}</div>
-    <div class="decision-item">버전 응답: ${status.version_endpoint_ready ? '준비됨' : '미준비'}</div>
-    <div class="decision-item">활성 포트 파일: ${status.active_port_file_seen ? '확인됨' : '미확인'}</div>
-    <div class="decision-item">대상: ${escapeHtml(targetLabel)}</div>
-    <div class="decision-item">웹소켓: ${escapeHtml(wsLabel)}</div>
-  `;
-}
-
 function renderCycleMap(entries) {
   const visible = entries.slice(-10);
   document.getElementById('cycle-map').innerHTML = visible.length
@@ -5853,12 +6059,6 @@ function runTraceRefresh() {
       traceRefreshInFlight = false;
       if (traceRefreshPending) requestTraceRefresh();
     });
-}
-
-async function refreshCdpStatus() {
-  const response = await fetch('/api/cdp/status');
-  if (!response.ok) throw new Error(await response.text());
-  renderCdpStatus(await response.json());
 }
 
 function connectEvents() {
@@ -6032,7 +6232,6 @@ if (latestReport) {
     setStatus(error.message);
   });
 }
-refreshCdpStatus().catch(error => renderCdpStatus({ status: error.message }));
 setLiveStatus('수동 새로고침 모드');
 </script>
 </body>
@@ -6046,7 +6245,6 @@ setLiveStatus('수동 새로고침 모드');
 fn handle_connection(
     stream: &mut TcpStream,
     config: &DevConsoleConfig,
-    server_state: &DevConsoleServerState,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let request = match read_http_request(stream) {
         Ok(request) => request,
@@ -6082,7 +6280,7 @@ fn handle_connection(
     let (path, query) = split_path_query(raw_path);
 
     if method == "GET"
-        && let Some(result) = handle_static_get_route(stream, config, server_state, &path, query)
+        && let Some(result) = handle_static_get_route(stream, config, &path, query)
     {
         return result;
     }
@@ -6133,7 +6331,6 @@ fn handle_connection(
 fn handle_static_get_route(
     stream: &mut TcpStream,
     config: &DevConsoleConfig,
-    server_state: &DevConsoleServerState,
     path: &str,
     query: &str,
 ) -> Option<Result<(), Box<dyn Error + Send + Sync>>> {
@@ -6152,12 +6349,6 @@ fn handle_static_get_route(
         )),
         "/api/reports" | "/api/reports/" => Some(handle_cycle_report_latest_api(stream, config)),
         "/api/reports/aliases.json" => Some(handle_cycle_report_aliases_api(stream, config)),
-        "/api/cdp/status" => Some(write_response(
-            stream,
-            "200 OK",
-            "application/json; charset=utf-8",
-            &render_cdp_status_json(&server_state.current_cdp_status()),
-        )),
         _ if path.starts_with("/api/reports/by-alias/") => {
             Some(handle_cycle_report_alias_artifact_api(stream, &config.reports_dir, path))
         }
@@ -6348,7 +6539,7 @@ fn handle_cycle_report_artifact_page(
     reports_dir: &str,
     path: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let Some(cycle_id) = cycle_id_from_report_page_path(path) else {
+    let Some((cycle_id, file_name)) = cycle_report_page_file(path) else {
         return write_response(
             stream,
             "404 Not Found",
@@ -6356,13 +6547,13 @@ fn handle_cycle_report_artifact_page(
             "report artifact not found",
         );
     };
-    match cycle_report_browser_index_file(reports_dir, &cycle_id) {
-        Ok((index_path, index_html_bytes)) => write_file_response(
+    match cycle_report_browser_artifact_file(reports_dir, &cycle_id, &file_name) {
+        Ok((artifact_path, artifact_bytes)) => write_file_response(
             stream,
             "200 OK",
-            "text/html; charset=utf-8",
-            &index_path,
-            index_html_bytes,
+            artifact_content_type(&file_name),
+            &artifact_path,
+            artifact_bytes,
         ),
         Err(error) => write_response(
             stream,
@@ -6395,12 +6586,21 @@ fn handle_cycle_report_ready_api(
         );
     }
     match cycle_report_browser_index_file(&config.reports_dir, &cycle_id) {
-        Ok((_, index_html_bytes)) => write_response(
-            stream,
-            "200 OK",
-            "application/json; charset=utf-8",
-            &render_cycle_report_ready_json(config, &cycle_id, index_html_bytes),
-        ),
+        Ok((_, index_html_bytes)) => {
+            let diff_html_present =
+                cycle_report_optional_diff_html_present(&config.reports_dir, &cycle_id);
+            write_response(
+                stream,
+                "200 OK",
+                "application/json; charset=utf-8",
+                &render_cycle_report_ready_json(
+                    config,
+                    &cycle_id,
+                    index_html_bytes,
+                    diff_html_present,
+                ),
+            )
+        }
         Err(error) => write_response(
             stream,
             "404 Not Found",
@@ -6537,15 +6737,25 @@ fn handle_cycle_report_artifact_api(
     }
 }
 
-fn cycle_id_from_report_page_path(path: &str) -> Option<String> {
+fn cycle_report_page_file(path: &str) -> Option<(String, String)> {
     let rest = path
         .strip_prefix("/reports/")
         .or_else(|| path.strip_prefix("/cycles/"))?
         .trim_end_matches('/');
-    if rest.is_empty() || rest.contains('/') {
+    if rest.is_empty() {
         return None;
     }
-    Some(percent_decode(rest))
+    if let Some((cycle_id, file_name)) = rest.rsplit_once('/') {
+        if cycle_id.is_empty() || file_name.is_empty() || cycle_id.contains('/') {
+            return None;
+        }
+        let file_name = percent_decode(file_name);
+        if !CYCLE_REPORT_BROWSER_ARTIFACT_FILES.contains(&file_name.as_str()) {
+            return None;
+        }
+        return Some((percent_decode(cycle_id), file_name));
+    }
+    Some((percent_decode(rest), CYCLE_REPORT_INDEX_FILE.to_owned()))
 }
 
 fn cycle_alias_from_report_page_path(path: &str) -> Option<String> {
@@ -6585,7 +6795,7 @@ fn cycle_id_from_report_ready_api_path(path: &str) -> Option<String> {
 
 fn artifact_content_type(file_name: &str) -> &'static str {
     match file_name {
-        "index.html" => "text/html; charset=utf-8",
+        "index.html" | "diff.html" => "text/html; charset=utf-8",
         "context.md" => "text/markdown; charset=utf-8",
         _ => "application/json; charset=utf-8",
     }
@@ -6608,6 +6818,7 @@ fn render_cycle_report_ready_json(
     config: &DevConsoleConfig,
     cycle_id: &str,
     index_html_bytes: u64,
+    diff_html_present: bool,
 ) -> String {
     let mut output = String::new();
     output.push('{');
@@ -6616,6 +6827,7 @@ fn render_cycle_report_ready_json(
     push_json_field(&mut output, "reports_dir", &json_string(&config.reports_dir), false);
     push_json_field(&mut output, "cycle_id", &json_string(cycle_id), false);
     push_json_field(&mut output, "index_html_bytes", &index_html_bytes.to_string(), false);
+    push_json_field(&mut output, "diff_html_present", bool_json(diff_html_present), false);
     push_json_field(&mut output, "artifact_files_present", bool_json(true), false);
     output.push('}');
     output
@@ -6885,66 +7097,6 @@ fn push_role_lanes_array(output: &mut String, lanes: &[RoleLaneSummary]) {
         output.push('}');
     }
     output.push(']');
-}
-
-/// Renders public CDP readiness JSON consumed by the HTML console.
-#[must_use]
-pub fn render_cdp_status_json(status: &CdpStatus) -> String {
-    let mut output = String::new();
-    output.push('{');
-    push_json_field(&mut output, "status", &json_string(&status.status), true);
-    push_json_field(
-        &mut output,
-        "process_id",
-        &status.process_id.map_or_else(|| "null".to_owned(), |id| id.to_string()),
-        false,
-    );
-    push_json_field(
-        &mut output,
-        "version_url",
-        &json_optional_string(status.version_url.as_deref()),
-        false,
-    );
-    push_json_field(
-        &mut output,
-        "version_endpoint_ready",
-        bool_json(status.version_endpoint_ready),
-        false,
-    );
-    push_json_field(
-        &mut output,
-        "active_port_file_seen",
-        bool_json(status.active_port_file_seen),
-        false,
-    );
-    push_json_field(
-        &mut output,
-        "target_list_url",
-        &json_optional_string(status.target_list_url.as_deref()),
-        false,
-    );
-    push_json_field(&mut output, "target", &cdp_target_json(status.target.as_ref()), false);
-    output.push('}');
-    output
-}
-
-fn cdp_target_json(target: Option<&CdpTargetInfo>) -> String {
-    let Some(target) = target else {
-        return "null".to_owned();
-    };
-    let mut output = String::new();
-    output.push('{');
-    push_json_field(&mut output, "id", &json_optional_string(target.id.as_deref()), true);
-    push_json_field(&mut output, "title", &json_optional_string(target.title.as_deref()), false);
-    push_json_field(&mut output, "url", &json_string(&target.url), false);
-    push_json_field(
-        &mut output,
-        "webSocketDebuggerUrl",
-        &json_optional_string(target.web_socket_debugger_url.as_deref()),
-        false,
-    );
-    output.push('}');
-    output
 }
 
 fn public_trace_projection_json(entry: &DevelopmentTraceEntry) -> String {
@@ -7613,16 +7765,16 @@ mod tests {
 
         for title in [
             "사이클 상태",
-            "전체 원문 evidence",
+            "사용자 요청 원문",
             "보조 작업 흐름 지도",
             "오케스트라 역할 지시 evidence",
             "역할 반환 원문 evidence",
             "실패 분석",
             "테스트 명령/결과 원문 evidence",
             "전체 변경 기록",
-            "전체 diff hunk",
+            "Diff 전용 artifact 색인",
             "파생 요약",
-            "Evidence audit",
+            "보고서 신뢰성 검증",
             "원본 raw/audit/context",
         ] {
             assert!(html.contains(title), "missing report section: {title}");
@@ -7634,8 +7786,13 @@ mod tests {
             "cycle_category_key",
             "사용자가 요청한 기능",
             "사용자 원문 요청 본문",
-            "source_ref: trace://cycle-report-route-test/user/1",
-            "hash_sha256: 9d7c0293b90b4267d298eefa833d44beaf414f9a68abb6f4d2d0773573861214",
+            "증거 메타데이터",
+            "trace://cycle-report-route-test/user/1",
+            "9d7c0293b90b4267d298eefa833d44beaf414f9a68abb6f4d2d0773573861214",
+            "원문 증거 불완전",
+            "작업 결과가 실패했다는 뜻이 아니라",
+            "audit.status=fail",
+            "Audit 뜻: 보고서 신뢰성 검증",
             "orchestra가 cycle-report를 생성하라고 지시함",
             "codegen 원문 지시",
             "prompt_derived_summary_ko",
@@ -7652,6 +7809,8 @@ mod tests {
             "raw-event-1",
             "audit failure raw",
             "context markdown raw",
+            "보고서 신뢰성 진단 기술 상세",
+            "audit-diagnostic-details",
         ] {
             assert!(html.contains(phrase), "missing report phrase: {phrase}");
         }
@@ -7662,12 +7821,128 @@ mod tests {
     }
 
     #[test]
-    fn cycle_report_artifact_html_renders_code_changes_as_editor_diff() {
+    fn cycle_report_artifact_html_renders_user_request_as_full_width_reading_block() {
+        let artifact = sample_cycle_report_artifact();
+        let html = render_cycle_report_artifact_html(&artifact);
+
+        let evidence_start = html
+            .find("<section class=\"section\" aria-labelledby=\"evidence-title\">")
+            .expect("user request evidence section should exist");
+        let workflow_start = html
+            .find("<section class=\"section\" aria-labelledby=\"workflow-title\">")
+            .expect("workflow section should follow user request evidence");
+        let evidence_section = &html[evidence_start..workflow_start];
+
+        for phrase in [
+            "사용자 요청 원문",
+            "전체 폭으로 보여줍니다",
+            "user-request-card",
+            "<pre class=\"evidence-text\">사용자 원문 요청 본문</pre>",
+            "<details class=\"evidence-details evidence-metadata\">",
+            "<th scope=\"row\">source_ref</th>",
+            "trace://cycle-report-route-test/user/1",
+        ] {
+            assert!(
+                evidence_section.contains(phrase),
+                "missing full-width evidence phrase: {phrase}"
+            );
+        }
+        assert!(
+            !evidence_section.contains("grid-two"),
+            "user request evidence section must not use two-column cards"
+        );
+        assert!(
+            !evidence_section.contains("source_ref: trace://cycle-report-route-test/user/1"),
+            "source_ref metadata should not be rendered as inline body text"
+        );
+        assert!(html.contains("white-space: pre-wrap;"));
+        assert!(html.contains("overflow-wrap: anywhere;"));
+        assert!(html.contains("width: calc(100% - 32px);"));
+        assert!(!html.contains("width: min(1380px"));
+    }
+
+    #[test]
+    fn cycle_report_artifact_html_keeps_audit_diagnostics_collapsed_without_failure_style() {
+        let artifact = sample_cycle_report_artifact();
+        let html = render_cycle_report_artifact_html(&artifact);
+
+        let audit_start = html
+            .find("<section class=\"section\" aria-labelledby=\"evidence-audit-title\">")
+            .expect("evidence audit section should exist");
+        let raw_start = html
+            .find("<section class=\"section\" aria-labelledby=\"raw-title\">")
+            .expect("raw section should follow evidence audit section");
+        let audit_section = &html[audit_start..raw_start];
+
+        for phrase in [
+            "누락된 원문 evidence 목록",
+            "무효 원문 evidence 목록",
+            "원문이 아니라 파생 표시인 필드",
+            "필수 입력 누락",
+            "검증 경고",
+            "보고서 신뢰성 진단 기술 상세",
+            "아래 원문은 작업 실패 판정이 아니라 trace audit이 보고서 evidence를 점검한 기술 진단입니다.",
+            "<details class=\"technical-details audit-diagnostic-details\">",
+            "<th scope=\"row\">trace_audit/findings</th>",
+            "<th scope=\"row\">trace_audit_command</th>",
+            "audit failure raw",
+            "cargo audit raw command output",
+        ] {
+            assert!(
+                audit_section.contains(phrase),
+                "missing collapsed audit diagnostic phrase: {phrase}"
+            );
+        }
+        assert!(
+            !audit_section.contains("status-failed"),
+            "audit diagnostics must not reuse failure visual styling"
+        );
+        assert!(
+            !audit_section.contains("trace audit findings"),
+            "audit diagnostics should use Korean reliability wording instead of raw failure-style headings"
+        );
+        assert!(
+            !audit_section.contains("trace audit command"),
+            "audit diagnostics should use Korean reliability wording instead of raw failure-style headings"
+        );
+    }
+
+    #[test]
+    fn cycle_report_artifact_html_links_to_diff_artifact_without_rendering_hunk_lines() {
         let artifact = sample_cycle_report_artifact();
         let html = render_cycle_report_artifact_html(&artifact);
 
         for phrase in [
-            "전체 diff hunk",
+            "Diff 전용 artifact 색인",
+            "/reports/cycle-report-route-test/diff.html",
+            "apps/xavi-dev-console/src/lib.rs",
+            "언어: rust",
+            "변경: modified",
+            "@@ open-cycle readiness @@",
+            "open-cycle 명령이 같은 서버를 재사용하도록 변경",
+            "file-1-apps-xavi-dev-console-src-lib-rs",
+            "hunk-1-1",
+        ] {
+            assert!(html.contains(phrase), "missing diff index phrase: {phrase}");
+        }
+        assert!(!html.contains("diff-line remove"));
+        assert!(!html.contains("diff-line add"));
+        assert!(!html.contains("diff-line context"));
+        assert!(!html.contains("<span class=\"line-no\">122</span>"));
+        assert!(!html.contains("+let probe = probe_existing_report_server(config)?;"));
+        assert!(!html.contains("-let url = fallback_to_any_open_port();"));
+    }
+
+    #[test]
+    fn cycle_report_diff_html_renders_code_changes_as_full_width_diff() {
+        let artifact = sample_cycle_report_artifact();
+        let html = render_cycle_report_diff_html(&artifact);
+
+        for phrase in [
+            "Diff 전용 artifact",
+            "줄바꿈",
+            "white-space: pre",
+            "overflow-x: auto",
             "apps/xavi-dev-console/src/lib.rs",
             "언어: rust",
             "변경: modified",
@@ -7682,6 +7957,8 @@ mod tests {
             "기존 fallback 없는 서버 재사용 검사를 추가했다.",
             "line 122",
             "health 확인 뒤 같은 report server만 재사용한다.",
+            "file-1-apps-xavi-dev-console-src-lib-rs",
+            "hunk-1-1",
         ] {
             assert!(html.contains(phrase), "missing diff phrase: {phrase}");
         }
@@ -7691,6 +7968,14 @@ mod tests {
         assert!(html.contains("<span class=\"line-no\">122</span>"));
         assert!(html.contains("+let probe = probe_existing_report_server(config)?;"));
         assert!(html.contains("-let url = fallback_to_any_open_port();"));
+        assert!(!html.contains("1500px"));
+        let shell_rule_start =
+            html.find(".shell {").expect("diff html should include the shell CSS rule");
+        let shell_rule_end =
+            html[shell_rule_start..].find('}').expect("diff shell CSS rule should close");
+        let shell_rule = &html[shell_rule_start..shell_rule_start + shell_rule_end];
+        assert!(shell_rule.contains("width: calc(100vw - 24px);"));
+        assert!(!shell_rule.contains("max-width"));
     }
 
     #[test]
@@ -7701,15 +7986,20 @@ mod tests {
         for phrase in [
             "user_request_verbatim",
             "사용자 원문 요청 본문",
-            "source_type: development_trace",
-            "source_ref: trace://cycle-report-route-test/user/1",
-            "hash_sha256: 9d7c0293b90b4267d298eefa833d44beaf414f9a68abb6f4d2d0773573861214",
-            "timestamp: unix:1",
-            "order: 1",
+            "<th scope=\"row\">source_type</th>",
+            "development_trace",
+            "<th scope=\"row\">source_ref</th>",
+            "trace://cycle-report-route-test/user/1",
+            "<th scope=\"row\">hash_sha256</th>",
+            "9d7c0293b90b4267d298eefa833d44beaf414f9a68abb6f4d2d0773573861214",
+            "<th scope=\"row\">timestamp</th>",
+            "unix:1",
+            "<th scope=\"row\">order</th>",
+            "<td>1</td>",
             "prompt_verbatim",
             "codegen 원문 지시",
-            "source_ref: trace://cycle-report-route-test/dispatch/codegen",
-            "hash_sha256: e61ad81c12930455e55cc9b5e35ce7fdc7a7b7ddd9d44132f16965480d9ecd62",
+            "trace://cycle-report-route-test/dispatch/codegen",
+            "e61ad81c12930455e55cc9b5e35ce7fdc7a7b7ddd9d44132f16965480d9ecd62",
         ] {
             assert!(html.contains(phrase), "missing evidence phrase: {phrase}");
         }
@@ -7905,10 +8195,8 @@ mod tests {
 
         let html = render_cycle_report_artifact_html(&artifact);
 
-        assert!(html.contains("표시할 전체 diff hunk 없음"));
-        assert!(
-            html.contains("artifact를 새로 만들거나 요약으로 대체하지 않고 빈 상태만 표시합니다.")
-        );
+        assert!(html.contains("표시할 diff hunk 색인 없음"));
+        assert!(html.contains("메인 화면은 diff를 합성하지 않고 전용 artifact 링크만 유지합니다."));
         assert!(!html.contains("trace DB"));
     }
 
@@ -8020,6 +8308,10 @@ mod tests {
             "GET /reports/cycle-report-route-test/ HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
             &reports_dir,
         );
+        let diff_html_response = handle_single_request_with_reports_dir(
+            "GET /reports/cycle-report-route-test/diff.html HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            &reports_dir,
+        );
         let latest_response = handle_single_request_with_reports_dir(
             "GET /api/reports HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
             &reports_dir,
@@ -8060,6 +8352,10 @@ mod tests {
             "GET /api/reports/cycle-report-route-test/index.html HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
             &reports_dir,
         );
+        let artifact_diff_response = handle_single_request_with_reports_dir(
+            "GET /api/reports/cycle-report-route-test/diff.html HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            &reports_dir,
+        );
         let ready_response = handle_single_request_with_reports_dir(
             "GET /api/reports/cycle-report-route-test/ready HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
             &reports_dir,
@@ -8070,8 +8366,14 @@ mod tests {
         assert!(html_response.starts_with("HTTP/1.1 200 OK"));
         assert!(html_response.contains("Content-Type: text/html; charset=utf-8"));
         assert!(html_response.contains("Xavi cycle report"));
-        assert!(html_response.contains("전체 diff hunk"));
+        assert!(html_response.contains("diff 전용 artifact 링크"));
         assert!(html_response.contains("prebuilt cycle-report index"));
+        assert!(!html_response.contains("+let probe = probe_existing_report_server(config)?;"));
+        assert!(diff_html_response.starts_with("HTTP/1.1 200 OK"));
+        assert!(diff_html_response.contains("Content-Type: text/html; charset=utf-8"));
+        assert!(diff_html_response.contains("Xavi cycle diff"));
+        assert!(diff_html_response.contains("전체 diff hunk"));
+        assert!(diff_html_response.contains("+let probe = probe_existing_report_server(config)?;"));
         assert!(latest_response.starts_with("HTTP/1.1 200 OK"));
         assert!(latest_response.contains("Content-Type: application/json; charset=utf-8"));
         assert!(latest_response.contains("\"cycle_id\":\"cycle-report-route-test\""));
@@ -8090,19 +8392,56 @@ mod tests {
         assert!(context_response.contains("Content-Type: text/markdown; charset=utf-8"));
         assert!(context_response.contains("context markdown raw"));
         assert!(alias_response.starts_with("HTTP/1.1 200 OK"));
-        assert!(alias_response.contains("전체 diff hunk"));
+        assert!(alias_response.contains("diff 전용 artifact 링크"));
         assert!(by_alias_response.starts_with("HTTP/1.1 200 OK"));
         assert!(by_alias_response.contains("cycle-report-route-test"));
         assert!(by_alias_response.contains("feature-001"));
         assert!(artifact_index_response.starts_with("HTTP/1.1 200 OK"));
         assert!(artifact_index_response.contains("Content-Type: text/html; charset=utf-8"));
         assert!(artifact_index_response.contains("prebuilt cycle-report index"));
+        assert!(artifact_diff_response.starts_with("HTTP/1.1 200 OK"));
+        assert!(artifact_diff_response.contains("Content-Type: text/html; charset=utf-8"));
+        assert!(artifact_diff_response.contains("prebuilt cycle-report diff"));
+        assert!(
+            artifact_diff_response.contains("+let probe = probe_existing_report_server(config)?;")
+        );
         assert!(ready_response.starts_with("HTTP/1.1 200 OK"));
         assert!(ready_response.contains("\"service\":\"xavi-dev-console\""));
         assert!(ready_response.contains("\"reports_dir\":"));
         assert!(ready_response.contains("\"cycle_id\":\"cycle-report-route-test\""));
         assert!(ready_response.contains("\"index_html_bytes\":"));
+        assert!(ready_response.contains("\"diff_html_present\":true"));
         assert!(ready_response.contains("\"artifact_files_present\":true"));
+    }
+
+    #[test]
+    fn cycle_report_readiness_keeps_old_core_artifact_ready_without_diff_html() {
+        let reports_dir = test_reports_dir("artifact-routes-no-diff");
+        let cycle_id = "cycle-report-route-test";
+        write_sample_report_artifact(&reports_dir, cycle_id);
+        std::fs::remove_file(reports_dir.join(cycle_id).join("diff.html"))
+            .expect("diff artifact should be removed for old artifact fixture");
+
+        let index_response = handle_single_request_with_reports_dir(
+            "GET /reports/cycle-report-route-test/ HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            &reports_dir,
+        );
+        let ready_response = handle_single_request_with_reports_dir(
+            "GET /api/reports/cycle-report-route-test/ready HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            &reports_dir,
+        );
+        let diff_response = handle_single_request_with_reports_dir(
+            "GET /reports/cycle-report-route-test/diff.html HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            &reports_dir,
+        );
+
+        assert!(index_response.starts_with("HTTP/1.1 200 OK"));
+        assert!(index_response.contains("prebuilt cycle-report index"));
+        assert!(ready_response.starts_with("HTTP/1.1 200 OK"));
+        assert!(ready_response.contains("\"artifact_files_present\":true"));
+        assert!(ready_response.contains("\"diff_html_present\":false"));
+        assert!(diff_response.starts_with("HTTP/1.1 404 Not Found"));
+        assert!(diff_response.contains("missing cycle-report artifact file"));
     }
 
     #[cfg(unix)]
@@ -8167,6 +8506,49 @@ mod tests {
         assert!(ready_response.starts_with("HTTP/1.1 404 Not Found"));
         assert!(ready_response.contains("\"error\":\"report_artifact_not_ready\""));
         assert!(ready_response.contains("index.html must not be a symlink"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cycle_report_artifact_routes_reject_diff_html_symlink_without_exposing_target() {
+        let reports_dir = test_reports_dir("diff-symlink");
+        let outside_dir = test_reports_dir("diff-symlink-outside");
+        let cycle_id = "cycle-report-route-test";
+        write_sample_report_artifact(&reports_dir, cycle_id);
+        let escaped_diff_body = "escaped diff should not be served";
+        let escaped_diff_path = outside_dir.join("escaped-diff.html");
+        std::fs::write(&escaped_diff_path, escaped_diff_body)
+            .expect("escaped diff fixture should write");
+        let diff_path = reports_dir.join(cycle_id).join("diff.html");
+        std::fs::remove_file(&diff_path).expect("sample diff should be removed");
+        std::os::unix::fs::symlink(&escaped_diff_path, &diff_path)
+            .expect("diff symlink should be created");
+
+        let diff_page_response = handle_single_request_with_reports_dir(
+            "GET /reports/cycle-report-route-test/diff.html HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            &reports_dir,
+        );
+        let diff_api_response = handle_single_request_with_reports_dir(
+            "GET /api/reports/cycle-report-route-test/diff.html HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            &reports_dir,
+        );
+        let ready_response = handle_single_request_with_reports_dir(
+            "GET /api/reports/cycle-report-route-test/ready HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            &reports_dir,
+        );
+
+        assert!(diff_page_response.starts_with("HTTP/1.1 404 Not Found"));
+        assert!(diff_page_response.contains("diff.html must not be a symlink"));
+        assert!(!diff_page_response.contains(escaped_diff_body));
+        assert!(diff_api_response.starts_with("HTTP/1.1 404 Not Found"));
+        assert!(diff_api_response.contains("\"error\":\"report_artifact_not_found\""));
+        assert!(diff_api_response.contains("diff.html must not be a symlink"));
+        assert!(!diff_api_response.contains(escaped_diff_body));
+        assert!(ready_response.starts_with("HTTP/1.1 200 OK"));
+        assert!(ready_response.contains("\"artifact_files_present\":true"));
+        assert!(ready_response.contains("\"diff_html_present\":false"));
+        assert!(!ready_response.contains("diff.html must not be a symlink"));
+        assert!(!ready_response.contains(escaped_diff_body));
     }
 
     #[cfg(unix)]
@@ -8304,7 +8686,7 @@ mod tests {
         assert!(page_response.contains("report alias index malformed"));
         assert!(!page_response.contains("전체 diff hunk"));
         assert!(canonical_response.starts_with("HTTP/1.1 200 OK"));
-        assert!(canonical_response.contains("전체 diff hunk"));
+        assert!(canonical_response.contains("diff 전용 artifact 링크"));
 
         std::fs::write(
             reports_dir.join("aliases.json"),
@@ -8455,7 +8837,9 @@ mod tests {
         copy_cycle_report_artifact_bundle(&reports_dir, "cycle-report-route-test", &output_dir)
             .expect("existing artifact bundle should copy into temp dir");
 
-        for file_name in ["index.html", "report.json", "raw.json", "audit.json", "context.md"] {
+        for file_name in
+            ["index.html", "diff.html", "report.json", "raw.json", "audit.json", "context.md"]
+        {
             assert!(
                 output_dir.join(file_name).exists(),
                 "missing copied artifact file: {file_name}"
@@ -8466,6 +8850,9 @@ mod tests {
         let raw = std::fs::read_to_string(output_dir.join("raw.json"))
             .expect("copied raw json should read");
         assert!(html.contains("prebuilt cycle-report index"));
+        let diff = std::fs::read_to_string(output_dir.join("diff.html"))
+            .expect("copied diff html should read");
+        assert!(diff.contains("prebuilt cycle-report diff"));
         assert!(raw.contains("raw-event-1"));
     }
 
@@ -8947,241 +9334,6 @@ mod tests {
     }
 
     #[test]
-    fn chrome_launch_plan_uses_dedicated_profile_and_debugging_port() {
-        let config = ChromeLaunchConfig {
-            chrome_path: PathBuf::from(
-                "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-            ),
-            profile_dir: PathBuf::from(".xavi/chrome-dev-console-profile"),
-            remote_debugging_port: 9333,
-        };
-        let plan = chrome_launch_plan(&config, "http://127.0.0.1:4176?cycle=abc");
-
-        assert_eq!(plan.program, config.chrome_path);
-        assert!(plan.args.contains(&"--user-data-dir=.xavi/chrome-dev-console-profile".to_owned()));
-        assert!(plan.args.contains(&"--remote-debugging-port=9333".to_owned()));
-        assert!(plan.args.contains(&"--new-window".to_owned()));
-        assert!(plan.args.contains(&"http://127.0.0.1:4176?cycle=abc".to_owned()));
-    }
-
-    #[test]
-    fn cdp_target_list_parser_finds_dev_console_target() {
-        let body = r#"[
-          {"id":"other","title":"Other","url":"http://127.0.0.1:4176/?cycle=other"},
-          {"id":"target-1","title":"Xavi Dev Console","url":"http://127.0.0.1:4176?cycle=abc","webSocketDebuggerUrl":"ws://127.0.0.1:9223/devtools/page/target-1"}
-        ]"#;
-
-        let target = cdp_target_from_list_body(body, "http://127.0.0.1:4176?cycle=abc").unwrap();
-
-        assert_eq!(target.id.as_deref(), Some("target-1"));
-        assert_eq!(target.title.as_deref(), Some("Xavi Dev Console"));
-        assert_eq!(target.url, "http://127.0.0.1:4176?cycle=abc");
-        assert_eq!(
-            target.web_socket_debugger_url.as_deref(),
-            Some("ws://127.0.0.1:9223/devtools/page/target-1")
-        );
-    }
-
-    #[test]
-    fn cdp_target_list_parser_matches_empty_and_slash_paths_with_same_query() {
-        let body = r#"[
-          {"id":"target-1","title":"Xavi Dev Console","url":"http://127.0.0.1:4176/?cycle=abc","webSocketDebuggerUrl":"ws://127.0.0.1:9223/devtools/page/target-1"}
-        ]"#;
-
-        let target = cdp_target_from_list_body(body, "http://127.0.0.1:4176?cycle=abc").unwrap();
-
-        assert_eq!(target.id.as_deref(), Some("target-1"));
-        assert_eq!(target.url, "http://127.0.0.1:4176/?cycle=abc");
-        assert!(cdp_url_matches(
-            "http://127.0.0.1:4176/?cycle=abc",
-            "http://127.0.0.1:4176?cycle=abc"
-        ));
-        assert!(!cdp_url_matches(
-            "http://127.0.0.1:4176/?cycle=other",
-            "http://127.0.0.1:4176?cycle=abc"
-        ));
-    }
-
-    #[test]
-    fn cdp_status_json_exposes_not_launched_and_target_ready_states() {
-        let not_launched = render_cdp_status_json(&CdpStatus::not_launched());
-        assert!(not_launched.contains("\"status\":\"not_launched\""));
-        assert!(not_launched.contains("\"target\":null"));
-
-        let outcome = ChromeLaunchOutcome {
-            process_id: Some(123),
-            version_url: "http://127.0.0.1:9223/json/version".to_owned(),
-            version_endpoint_ready: true,
-            active_port_file_seen: true,
-            target_list_url: "http://127.0.0.1:9223/json/list".to_owned(),
-            target: Some(CdpTargetInfo {
-                id: Some("target-1".to_owned()),
-                title: Some("Xavi Dev Console".to_owned()),
-                url: "http://127.0.0.1:4176/?cycle=abc".to_owned(),
-                web_socket_debugger_url: Some(
-                    "ws://127.0.0.1:9223/devtools/page/target-1".to_owned(),
-                ),
-            }),
-        };
-        let ready = render_cdp_status_json(&CdpStatus::from_launch_outcome(&outcome));
-
-        assert!(ready.contains("\"status\":\"target_ready\""));
-        assert!(ready.contains("\"process_id\":123"));
-        assert!(ready.contains("\"webSocketDebuggerUrl\""));
-        assert!(ready.contains("ws://127.0.0.1:9223/devtools/page/target-1"));
-    }
-
-    #[test]
-    fn current_cdp_status_refreshes_late_ready_launch_target() {
-        let frontend_url = "http://127.0.0.1:4176?cycle=abc";
-        let port = spawn_fake_cdp_server(frontend_url);
-        let profile_dir = test_profile_dir("late-ready");
-        std::fs::write(profile_dir.join("DevToolsActivePort"), format!("{port}\n"))
-            .expect("active port file should be writable");
-        let chrome_config = ChromeLaunchConfig {
-            chrome_path: PathBuf::from("/fake/chrome"),
-            profile_dir,
-            remote_debugging_port: port,
-        };
-        let initially_negative_outcome = ChromeLaunchOutcome {
-            process_id: Some(456),
-            version_url: cdp_version_url(port),
-            version_endpoint_ready: false,
-            active_port_file_seen: false,
-            target_list_url: cdp_target_list_url(port),
-            target: None,
-        };
-        let server_state = DevConsoleServerState::launched(
-            &initially_negative_outcome,
-            &chrome_config,
-            frontend_url,
-        );
-
-        let status = server_state.current_cdp_status();
-
-        assert_eq!(status.status, "target_ready");
-        assert_eq!(status.process_id, Some(456));
-        assert!(status.version_endpoint_ready);
-        assert!(status.active_port_file_seen);
-        assert_eq!(status.version_url.as_deref(), Some(cdp_version_url(port).as_str()));
-        assert_eq!(status.target_list_url.as_deref(), Some(cdp_target_list_url(port).as_str()));
-        let target = status.target.expect("target should refresh from fake CDP");
-        assert_eq!(target.id.as_deref(), Some("target-1"));
-        assert_eq!(target.title.as_deref(), Some("Xavi Dev Console"));
-        assert_eq!(target.url, "http://127.0.0.1:4176/?cycle=abc");
-        assert_eq!(
-            target.web_socket_debugger_url.as_deref(),
-            Some("ws://127.0.0.1:9223/devtools/page/target-1")
-        );
-    }
-
-    #[test]
-    fn current_cdp_status_uses_explicit_port_without_active_port_file() {
-        let frontend_url = "http://127.0.0.1:4176?cycle=abc";
-        let port = spawn_fake_cdp_server(frontend_url);
-        let profile_dir = test_profile_dir("no-active-port");
-        let chrome_config = ChromeLaunchConfig {
-            chrome_path: PathBuf::from("/fake/chrome"),
-            profile_dir,
-            remote_debugging_port: port,
-        };
-        let initially_negative_outcome = ChromeLaunchOutcome {
-            process_id: Some(789),
-            version_url: cdp_version_url(port),
-            version_endpoint_ready: false,
-            active_port_file_seen: false,
-            target_list_url: cdp_target_list_url(port),
-            target: None,
-        };
-        let server_state = DevConsoleServerState::launched(
-            &initially_negative_outcome,
-            &chrome_config,
-            frontend_url,
-        );
-
-        let status = server_state.current_cdp_status();
-
-        assert_eq!(status.status, "target_ready");
-        assert_eq!(status.process_id, Some(789));
-        assert!(status.version_endpoint_ready);
-        assert!(!status.active_port_file_seen);
-        assert!(status.target.is_some());
-    }
-
-    #[test]
-    fn current_cdp_status_allows_delayed_local_cdp_response() {
-        let frontend_url = "http://127.0.0.1:4176?cycle=abc";
-        let port = spawn_delayed_fake_cdp_server(frontend_url, Duration::from_millis(400));
-        let profile_dir = test_profile_dir("delayed-cdp");
-        let chrome_config = ChromeLaunchConfig {
-            chrome_path: PathBuf::from("/fake/chrome"),
-            profile_dir,
-            remote_debugging_port: port,
-        };
-        let initially_negative_outcome = ChromeLaunchOutcome {
-            process_id: Some(790),
-            version_url: cdp_version_url(port),
-            version_endpoint_ready: false,
-            active_port_file_seen: false,
-            target_list_url: cdp_target_list_url(port),
-            target: None,
-        };
-        let server_state = DevConsoleServerState::launched(
-            &initially_negative_outcome,
-            &chrome_config,
-            frontend_url,
-        );
-
-        let status = server_state.current_cdp_status();
-
-        assert_eq!(status.status, "target_ready");
-        assert!(status.version_endpoint_ready);
-        assert!(status.target.is_some());
-    }
-
-    #[test]
-    fn current_cdp_status_reports_not_ready_when_explicit_port_version_fails() {
-        let frontend_url = "http://127.0.0.1:4176?cycle=abc";
-        let port = spawn_fake_cdp_server_with_options(frontend_url, Duration::ZERO, false);
-        let profile_dir = test_profile_dir("version-failure");
-        let chrome_config = ChromeLaunchConfig {
-            chrome_path: PathBuf::from("/fake/chrome"),
-            profile_dir,
-            remote_debugging_port: port,
-        };
-        let initially_negative_outcome = ChromeLaunchOutcome {
-            process_id: Some(791),
-            version_url: cdp_version_url(port),
-            version_endpoint_ready: false,
-            active_port_file_seen: false,
-            target_list_url: cdp_target_list_url(port),
-            target: None,
-        };
-        let server_state = DevConsoleServerState::launched(
-            &initially_negative_outcome,
-            &chrome_config,
-            frontend_url,
-        );
-
-        let status = server_state.current_cdp_status();
-
-        assert_eq!(status.status, "cdp_not_ready");
-        assert_eq!(status.process_id, Some(791));
-        assert!(!status.version_endpoint_ready);
-        assert!(!status.active_port_file_seen);
-        assert!(status.target.is_none());
-    }
-
-    #[test]
-    fn html_shell_fetches_cdp_status_endpoint() {
-        let html = render_console_html("cycle-dev-console-test", None);
-
-        assert!(html.contains("id=\"cdp-status\""));
-        assert!(html.contains("fetch('/api/cdp/status')"));
-        assert!(html.contains("CDP 대상 상태"));
-    }
-
-    #[test]
     fn request_size_limits_reject_large_post_body_and_large_request() {
         let post_headers = format!(
             "POST /api/cycles/cycle-dev-console-test/input HTTP/1.1\r\nContent-Length: {}\r\n\r\n",
@@ -9338,7 +9490,7 @@ mod tests {
 
     const SAMPLE_CYCLE_REPORT_RAW_JSON: &str =
         r#"[{"event_id":"raw-event-1","body":"raw trace body"}]"#;
-    const SAMPLE_CYCLE_REPORT_AUDIT_JSON: &str = r#"{"status":"failed","findings":["audit failure raw"],"missing_evidence":[],"derived_not_verbatim":["user_request"]}"#;
+    const SAMPLE_CYCLE_REPORT_AUDIT_JSON: &str = r#"{"status":"failed","findings":["audit failure raw"],"trace_audit_command":"cargo audit raw command output\nline 2","missing_evidence":[],"derived_not_verbatim":["user_request"]}"#;
     const SAMPLE_CYCLE_REPORT_CONTEXT_MARKDOWN: &str = "# context markdown raw\n";
 
     fn sample_cycle_report_artifact() -> CycleReportArtifact {
@@ -9370,10 +9522,17 @@ mod tests {
         std::fs::write(
             cycle_dir.join("index.html"),
             format!(
-                "<!doctype html><html><body><strong>Xavi cycle report</strong><span>prebuilt cycle-report index for {cycle_id}</span><section>전체 diff hunk</section><a href=\"/reports/by-alias/feature-001/\">feature-001</a></body></html>"
+                "<!doctype html><html><body><strong>Xavi cycle report</strong><span>prebuilt cycle-report index for {cycle_id}</span><section>diff 전용 artifact 링크</section><a href=\"/reports/{cycle_id}/diff.html\">diff.html</a><a href=\"/reports/by-alias/feature-001/\">feature-001</a></body></html>"
             ),
         )
         .expect("index artifact should write");
+        std::fs::write(
+            cycle_dir.join("diff.html"),
+            format!(
+                "<!doctype html><html><body><strong>Xavi cycle diff</strong><span>prebuilt cycle-report diff for {cycle_id}</span><section>전체 diff hunk</section><pre>+let probe = probe_existing_report_server(config)?;</pre></body></html>"
+            ),
+        )
+        .expect("diff artifact should write");
         std::fs::write(cycle_dir.join("report.json"), artifact.report_json)
             .expect("report artifact should write");
         std::fs::write(cycle_dir.join("raw.json"), artifact.raw_json.unwrap())
@@ -9523,7 +9682,7 @@ mod tests {
             report_limit: 20,
             reports_dir: reports_dir.to_owned(),
         };
-        let mut output = render_cycle_report_ready_json(&config, cycle_id, index_html_bytes);
+        let mut output = render_cycle_report_ready_json(&config, cycle_id, index_html_bytes, true);
         if !artifact_files_present {
             output = output
                 .replace("\"artifact_files_present\":true", "\"artifact_files_present\":false");
@@ -9621,8 +9780,7 @@ mod tests {
                 report_limit: 20,
                 reports_dir,
             };
-            handle_connection(&mut stream, &config, &DevConsoleServerState::not_launched())
-                .expect("static route should not open trace DB");
+            handle_connection(&mut stream, &config).expect("static route should not open trace DB");
         });
 
         let mut client = std::net::TcpStream::connect(address).expect("test client should connect");
@@ -9774,70 +9932,5 @@ mod tests {
             ),
             _ => metadata_json.to_owned(),
         }
-    }
-
-    fn test_profile_dir(name: &str) -> PathBuf {
-        let path = std::env::temp_dir()
-            .join(format!("xavi-dev-console-test-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&path);
-        std::fs::create_dir_all(&path).expect("test profile dir should be created");
-        path
-    }
-
-    fn spawn_fake_cdp_server(frontend_url: &str) -> u16 {
-        spawn_fake_cdp_server_with_options(frontend_url, Duration::ZERO, true)
-    }
-
-    fn spawn_delayed_fake_cdp_server(frontend_url: &str, delay: Duration) -> u16 {
-        spawn_fake_cdp_server_with_options(frontend_url, delay, true)
-    }
-
-    fn spawn_fake_cdp_server_with_options(
-        frontend_url: &str,
-        response_delay: Duration,
-        version_ok: bool,
-    ) -> u16 {
-        let listener = TcpListener::bind(("127.0.0.1", 0))
-            .expect("fake CDP listener should bind to an ephemeral port");
-        let port = listener.local_addr().expect("listener should have an address").port();
-        let frontend_url = frontend_url.to_owned();
-        let request_count = if version_ok { 2 } else { 1 };
-        thread::spawn(move || {
-            for _ in 0..request_count {
-                let Ok((mut stream, _)) = listener.accept() else {
-                    return;
-                };
-                let _ = stream.set_read_timeout(Some(Duration::from_secs(1)));
-                let mut buffer = [0_u8; 1024];
-                let read = stream.read(&mut buffer).unwrap_or(0);
-                let request = String::from_utf8_lossy(&buffer[..read]);
-                if !response_delay.is_zero() {
-                    thread::sleep(response_delay);
-                }
-                let (status, body) = if request.starts_with("GET /json/version ") {
-                    if version_ok {
-                        ("HTTP/1.1 200 OK", r#"{"Browser":"FakeChrome/1.0"}"#.to_owned())
-                    } else {
-                        ("HTTP/1.1 503 Service Unavailable", r#"{"error":"not ready"}"#.to_owned())
-                    }
-                } else if request.starts_with("GET /json/list ") {
-                    (
-                        "HTTP/1.1 200 OK",
-                        format!(
-                            r#"[{{"id":"target-1","title":"Xavi Dev Console","url":"{}","webSocketDebuggerUrl":"ws://127.0.0.1:9223/devtools/page/target-1"}}]"#,
-                            frontend_url.replacen('?', "/?", 1)
-                        ),
-                    )
-                } else {
-                    ("HTTP/1.1 404 Not Found", "{}".to_owned())
-                };
-                let response = format!(
-                    "{status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                    body.len()
-                );
-                let _ = stream.write_all(response.as_bytes());
-            }
-        });
-        port
     }
 }

@@ -420,8 +420,13 @@
     "artifacts": {
       "type": "object",
       "required": ["index_html", "report_json", "raw_json", "audit_json", "context_md", "latest_json"],
+      "description": "Required core artifact paths plus optional direct artifact paths. diff_html is allowed but not required for old artifact compatibility.",
       "properties": {
         "index_html": { "type": "string" },
+        "diff_html": {
+          "type": "string",
+          "description": "Optional prebuilt diff-only HTML artifact, canonically served at /reports/<cycle_id>/diff.html and /api/reports/<cycle_id>/diff.html when present."
+        },
         "report_json": { "type": "string" },
         "raw_json": { "type": "string" },
         "audit_json": { "type": "string" },

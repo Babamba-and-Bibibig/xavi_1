@@ -4,8 +4,6 @@
 .env.*
 .codex
 .xavi/reports/
-.xavi/chrome-dev-console-profile/
-.xavi/chrome-dev-console-empty-profile-*/
 dist/
 cache/
 __pycache__/

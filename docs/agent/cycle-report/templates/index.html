@@ -1,573 +1,361 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cycle Report {{cycle_id}}</title>
-  <style>
-    :root {
-      color-scheme: light;
-      --bg: #f7f8fa;
-      --panel: #ffffff;
-      --text: #1d2430;
-      --muted: #5e6878;
-      --line: #d9dee7;
-      --accent: #1f6feb;
-      --bad: #b42318;
-      --warn: #a15c00;
-      --good: #177245;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    header {
-      background: var(--panel);
-      border-bottom: 1px solid var(--line);
-      padding: 24px max(24px, calc((100vw - 1120px) / 2));
-    }
-
-    main {
-      max-width: 1120px;
-      margin: 0 auto;
-      padding: 24px;
-    }
-
-    h1, h2, h3 {
-      margin: 0;
-      line-height: 1.25;
-    }
-
-    h1 {
-      font-size: 28px;
-    }
-
-    h2 {
-      margin-top: 28px;
-      font-size: 20px;
-    }
-
-    h3 {
-      margin-top: 18px;
-      font-size: 16px;
-    }
-
-    p {
-      margin: 8px 0 0;
-    }
-
-    .meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .pill {
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      padding: 4px 10px;
-      background: #fff;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .status-success { color: var(--good); }
-    .status-failure { color: var(--bad); }
-    .status-interrupted,
-    .status-blocked { color: var(--warn); }
-
-    section {
-      margin-top: 18px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 18px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 12px;
-      table-layout: fixed;
-    }
-
-    th, td {
-      border-bottom: 1px solid var(--line);
-      padding: 9px 8px;
-      text-align: left;
-      vertical-align: top;
-      word-break: break-word;
-    }
-
-    th {
-      color: var(--muted);
-      font-weight: 600;
-      font-size: 13px;
-    }
-
-    code {
-      background: #eef2f7;
-      border-radius: 4px;
-      padding: 2px 4px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.92em;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 12px;
-    }
-
-    .kv {
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 12px;
-      background: #fbfcfe;
-    }
-
-    .kv strong {
-      display: block;
-      color: var(--muted);
-      font-size: 13px;
-      margin-bottom: 4px;
-    }
-
-    .empty {
-      color: var(--muted);
-    }
-
-    .warning-banner {
-      border: 1px solid #e0b36a;
-      border-radius: 6px;
-      background: #fff6e3;
-      color: #6f4700;
-      padding: 10px 12px;
-      margin-top: 12px;
-    }
-
-    .evidence-details {
-      margin-top: 10px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: #fbfcfe;
-      padding: 10px;
-    }
-
-    .evidence-details summary {
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    .evidence-details pre {
-      margin: 10px 0 0;
-      overflow: auto;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      background: #f3f6fa;
-      border-radius: 6px;
-      padding: 10px;
-    }
-
-    .evidence-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 8px;
-    }
-
-    .derived-label {
-      color: var(--warn);
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .artifact-links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .artifact-links a,
-    .file-tab {
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      color: var(--accent);
-      background: #fff;
-      padding: 6px 10px;
-      text-decoration: none;
-    }
-
-    .code-change-layout {
-      display: grid;
-      grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
-      gap: 14px;
-      margin-top: 14px;
-    }
-
-    .code-file-list {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fbfcfe;
-      overflow: hidden;
-    }
-
-    .file-tab {
-      display: block;
-      border-width: 0 0 1px;
-      border-radius: 0;
-      color: var(--text);
-      word-break: break-word;
-    }
-
-    .file-tab strong {
-      display: block;
-    }
-
-    .file-tab span {
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .diff-file {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      overflow: hidden;
-      background: #fff;
-    }
-
-    .diff-file + .diff-file {
-      margin-top: 12px;
-    }
-
-    .diff-file-header,
-    .hunk-heading {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-      border-bottom: 1px solid var(--line);
-      background: #f3f6fa;
-      padding: 10px 12px;
-    }
-
-    .diff-file-header code {
-      background: transparent;
-      padding: 0;
-    }
-
-    .hunk-summary {
-      margin: 0;
-      color: var(--muted);
-    }
-
-    .diff-lines {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 13px;
-      line-height: 1.45;
-      overflow-x: auto;
-    }
-
-    .diff-line {
-      display: grid;
-      grid-template-columns: 56px 56px 28px minmax(0, 1fr);
-      min-height: 24px;
-      border-bottom: 1px solid #edf0f5;
-    }
-
-    .diff-line .ln,
-    .diff-line .mark {
-      color: var(--muted);
-      padding: 3px 8px;
-      text-align: right;
-      user-select: none;
-    }
-
-    .diff-line .mark {
-      text-align: center;
-    }
-
-    .diff-line .code {
-      padding: 3px 10px;
-      white-space: pre;
-    }
-
-    .diff-line.add {
-      background: #eaf7ef;
-    }
-
-    .diff-line.remove {
-      background: #fdeeee;
-    }
-
-    .diff-line.context {
-      background: #fff;
-    }
-
-    .hunk-explanations {
-      margin: 0;
-      padding: 10px 12px 12px 28px;
-      border-top: 1px solid var(--line);
-      color: var(--text);
-    }
-
-    @media (max-width: 760px) {
-      .code-change-layout {
-        grid-template-columns: 1fr;
-      }
-
-      .diff-line {
-        grid-template-columns: 44px 44px 24px minmax(220px, 1fr);
-      }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xavi Cycle Report</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f5f7;
+  --ink: #20242b;
+  --muted: #646b76;
+  --line: #d9dee6;
+  --panel: #ffffff;
+  --accent: #146c5f;
+  --warn: #94610b;
+  --warn-soft: #fff6e3;
+  --danger-soft: #fff1f1;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+a { color: inherit; }
+.topbar {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
+  background: #ffffff;
+}
+.brand { display: grid; gap: 2px; min-width: 0; }
+.brand strong { font-size: 17px; }
+.brand span { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.btn {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 0 12px;
+  text-decoration: none;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+.shell {
+  width: calc(100% - 32px);
+  max-width: none;
+  margin: 0 auto;
+  padding: 22px 0 38px;
+  display: grid;
+  gap: 22px;
+}
+.hero {
+  display: grid;
+  gap: 12px;
+  padding: 8px 0 20px;
+  border-bottom: 1px solid var(--line);
+}
+.hero h1 { margin: 0; font-size: 34px; line-height: 1.08; letter-spacing: 0; }
+.hero p { margin: 0; color: #3b4048; line-height: 1.65; max-width: 980px; }
+.sticky-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.96);
+}
+.sticky-nav a {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  text-decoration: none;
+  background: #ffffff;
+}
+.section { display: grid; gap: 10px; }
+.section h2 { margin: 0; font-size: 18px; }
+.section-intro { margin: 0; color: var(--muted); line-height: 1.55; }
+.grid-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.grid-many { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.record-list { display: grid; gap: 10px; width: 100%; }
+.card {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  padding: 12px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+.card span { color: var(--muted); font-size: 12px; }
+.card p { margin: 0; color: #3b4048; line-height: 1.58; overflow-wrap: anywhere; }
+.user-request-card {
+  width: 100%;
+}
+.verbatim-evidence {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.evidence-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.metadata-table {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.metadata-table th,
+.metadata-table td {
+  border-top: 1px solid var(--line);
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.metadata-table th {
+  width: 180px;
+  color: var(--muted);
+  font-weight: 700;
+}
+.audit-readable {
+  border: 1px solid #e0b36a;
+  border-radius: 6px;
+  background: var(--warn-soft);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+.audit-readable strong { font-size: 18px; }
+.audit-readable p { margin: 0; color: #3b4048; line-height: 1.58; overflow-wrap: anywhere; }
+.technical-details {
+  width: 100%;
+}
+.audit-diagnostic-details {
+  border-color: #b8cce6;
+  background: #eef4fb;
+}
+.audit-diagnostic-details p {
+  margin: 8px 0 0;
+  color: #3b4048;
+  line-height: 1.58;
+  overflow-wrap: anywhere;
+}
+.warning-banner {
+  border: 1px solid #e0b36a;
+  border-radius: 6px;
+  background: var(--warn-soft);
+  color: #6f4700;
+  padding: 10px 12px;
+  line-height: 1.55;
+}
+.status-failed { background: var(--danger-soft); }
+.derived-label { color: var(--warn); font-size: 12px; font-weight: 700; }
+details {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 12px;
+}
+summary { cursor: pointer; font-weight: 700; }
+pre {
+  margin: 12px 0 0;
+  overflow: auto;
+  white-space: pre;
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 12px;
+  line-height: 1.55;
+}
+pre.evidence-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 860px) {
+  .topbar { align-items: flex-start; flex-direction: column; padding: 12px 14px; }
+  .actions { justify-content: flex-start; }
+  .grid-two { grid-template-columns: 1fr; }
+}
+</style>
 </head>
 <body>
-  <header>
-    <h1>사이클 전체 evidence 보고서 <span id="cycle-id">{{cycle_id}}</span></h1>
-    <div class="meta">
-      <span class="pill">상태: <strong id="cycle-status" class="status-{{status}}">{{status}}</strong></span>
-      <span class="pill">생성: <span id="generated-at">{{generated_at}}</span></span>
-      <span class="pill">별칭: <span id="cycle-alias">{{cycle_alias}}</span></span>
-      <span class="pill">제목: <span id="cycle-title">{{cycle_title}}</span></span>
-      <span class="pill">종료 hook: cycle-report</span>
+<header class="topbar">
+  <div class="brand">
+    <strong>Xavi cycle report</strong>
+    <span>{{cycle_id}} · {{cycle_alias}} · prebuilt index.html</span>
+  </div>
+  <nav class="actions" aria-label="artifact links">
+    <a class="btn" href="/reports">보고서 목록</a>
+    <a class="btn" href="/api/reports/{{cycle_id}}/report.json">report.json</a>
+    <a class="btn primary" href="/reports/{{cycle_id}}/diff.html">diff.html</a>
+  </nav>
+</header>
+<main class="shell">
+  <section class="hero">
+    <h1>사이클 evidence 보고서</h1>
+    <p>이 index artifact 는 사용자 요청, 역할별 dispatch/return evidence, command evidence, audit 경고, changed_files 색인, raw/context drill-down 을 먼저 보여준다.</p>
+    <p>전체 diff hunk line 은 이 화면에 렌더링하지 않는다. 파일/hunk anchor 색인과 diff.html 링크만 제공한다.</p>
+    {{evidence_audit_warning}}
+  </section>
+
+  <nav class="sticky-nav" aria-label="report anchors">
+    <a href="#status">상태</a>
+    <a href="#user-request">사용자 요청</a>
+    <a href="#workflow">작업 흐름</a>
+    <a href="#dispatch">dispatch evidence</a>
+    <a href="#returns">return evidence</a>
+    <a href="#commands">command evidence</a>
+    <a href="#audit">신뢰성 검증</a>
+    <a href="#changed-files">changed_files</a>
+    <a href="#diff-index">diff.html</a>
+    <a href="#raw-context">raw/context</a>
+  </nav>
+
+  <section id="status" class="section" aria-labelledby="status-title">
+    <h2 id="status-title">상단 evidence / 보고서 신뢰성 검증</h2>
+    <div class="grid-many">
+      <article class="card"><span>status</span><strong>{{status}}</strong></article>
+      <article class="card"><span>evidence_status</span><strong>{{evidence_status}}</strong></article>
+      <article class="card audit-readable">
+        <span>보고서 신뢰성 검증</span>
+        <strong>원문 증거 검증 상태</strong>
+        <p>audit 는 작업 실패 판정이 아니라 보고서가 참조해야 할 원문 evidence 의 누락/불완전 여부를 점검한 결과다.</p>
+        <details class="technical-details">
+          <summary>기술 원문 필드: audit.status</summary>
+          <pre>{{audit_status}}</pre>
+        </details>
+      </article>
+      <article class="card"><span>cycle_id</span><strong>{{cycle_id}}</strong></article>
     </div>
-  </header>
+  </section>
 
-  <main>
-    <section>
-      <h2>전체 원문 evidence와 종료 상태</h2>
-      {{missing_user_request_evidence_banner}}
-      <div class="grid">
-        <div class="kv">
-          <strong>사용자 요청 원문 evidence</strong>
-          {{user_request_verbatim_block}}
+  <section id="user-request" class="section" aria-labelledby="user-request-title">
+    <h2 id="user-request-title">사용자 요청 원문 evidence</h2>
+    <div class="record-list">
+      <article class="card user-request-card">
+        <span>canonical verbatim evidence</span>
+        <strong>사용자 요청 원문</strong>
+        <div class="verbatim-evidence">
+          <pre class="evidence-text">{{user_request_verbatim}}</pre>
+          <details class="evidence-details evidence-metadata">
+            <summary>증거 메타데이터</summary>
+            <p>source_ref, hash_sha256, timestamp, order, role, source_type, agent_id 같은 기술값은 본문 독해를 방해하지 않도록 이 접힘 영역에 둔다.</p>
+            {{user_request_verbatim_metadata}}
+          </details>
         </div>
-        <div class="kv">
-          <strong>파생 요약</strong>
-          <span class="derived-label">derived summary, not verbatim</span>
-          <span id="user-request-summary">{{user_request_display_summary_ko}}</span>
-        </div>
-        <div class="kv">
-          <strong>최종 상태</strong>
-          <span id="final-status">{{status}}</span>
-        </div>
-        <div class="kv">
-          <strong>cycle_alias</strong>
-          <span>{{cycle_alias}}</span>
-        </div>
-        <div class="kv">
-          <strong>cycle_category</strong>
-          <span>{{cycle_category}}</span>
-        </div>
-        <div class="kv">
-          <strong>cycle_category_key / cycle_sequence</strong>
-          <span>{{cycle_category_key}} / {{cycle_sequence}}</span>
-        </div>
-        <div class="kv">
-          <strong>결과 요약</strong>
-          <span class="derived-label">derived/display summary, not verbatim</span>
-          <span id="result-summary">{{result_summary}}</span>
-        </div>
-        <div class="kv">
-          <strong>orchestra 지시</strong>
-          <span class="derived-label">legacy derived field, not prompt verbatim</span>
-          <span id="orchestra-instruction">{{orchestra_instruction}}</span>
-        </div>
-        <div class="kv">
-          <strong>다음 판단</strong>
-          <span id="next-decisions">{{next_decisions}}</span>
-        </div>
-      </div>
-    </section>
+      </article>
+      <article class="card">
+        <span class="derived-label">derived/display summary, not verbatim</span>
+        <strong>user_request_display_summary_ko</strong>
+        <p>{{user_request_display_summary_ko}}</p>
+      </article>
+    </div>
+  </section>
 
-    <section>
-      <h2>오케스트라 역할 지시 evidence</h2>
-      <p class="empty">각 역할 지시는 원문 prompt evidence 와 파생 요약을 분리한다. 원문이 없으면 복원하지 않고 missing evidence 로 표시한다.</p>
-      <table>
-        <thead>
-          <tr>
-            <th>순서</th>
-            <th>역할</th>
-            <th>agent/source</th>
-            <th>prompt 원문 evidence</th>
-            <th>파생 요약</th>
-          </tr>
-        </thead>
-        <tbody id="orchestra-delegation-rows">
-          {{orchestra_delegations_rows}}
-        </tbody>
-      </table>
-    </section>
+  <section id="workflow" class="section" aria-labelledby="workflow-title">
+    <h2 id="workflow-title">작업 흐름</h2>
+    <p class="section-intro">이 구역은 derived/display 보조 지도다. 원문 지시와 반환은 dispatch/return evidence에서 확인한다.</p>
+    <div class="grid-many">{{workflow_cards}}</div>
+  </section>
 
-    <section>
-      <h2>실패 또는 blocked 지점과 원인</h2>
-      <p id="failure-point" class="empty">{{failure_point}}</p>
-      <table>
-        <thead>
-          <tr>
-            <th>단계</th>
-            <th>역할</th>
-            <th>증상</th>
-            <th>근거와 원인</th>
-          </tr>
-        </thead>
-        <tbody id="failure-rows">
-          {{failures_rows}}
-        </tbody>
-      </table>
-    </section>
+  <section id="dispatch" class="section" aria-labelledby="dispatch-title">
+    <h2 id="dispatch-title">역할별 dispatch evidence</h2>
+    <div class="record-list">{{orchestra_delegations}}</div>
+  </section>
 
-    <section>
-      <h2>역할 반환 원문 evidence와 보조 요약</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>역할</th>
-            <th>지시 원문/파생 요약</th>
-            <th>반환 원문/파생 요약</th>
-            <th>Context Report</th>
-            <th>orchestra 검수</th>
-          </tr>
-        </thead>
-        <tbody id="role-rows">
-          {{role_returns_rows}}
-        </tbody>
-      </table>
-    </section>
+  <section id="returns" class="section" aria-labelledby="returns-title">
+    <h2 id="returns-title">역할별 return evidence</h2>
+    <div class="record-list">{{role_returns}}</div>
+  </section>
 
-    <section>
-      <h2>전체 변경 기록</h2>
-      <p class="empty">changed_files 는 derived/display 보조 색인이다. 실제 변경 근거는 아래 code_changes 전체 hunk와 audit.excluded_code_changes 사유를 기준으로 읽는다.</p>
-      <p id="changed-files" class="empty">{{changed_files}}</p>
-      <table>
-        <thead>
-          <tr>
-            <th>파일</th>
-            <th>담당</th>
-            <th>의도</th>
-            <th>상태</th>
-          </tr>
-        </thead>
-        <tbody id="file-rows">
-          {{changed_file_rows}}
-        </tbody>
-      </table>
-    </section>
+  <section id="commands" class="section" aria-labelledby="commands-title">
+    <h2 id="commands-title">command evidence</h2>
+    <div class="record-list">{{command_evidence}}</div>
+  </section>
 
-    <section>
-      <h2>전체 diff hunk</h2>
-      <p class="empty">
-        code_changes 는 기본 변경 evidence 다. 한국어 설명은 derived/report-layer explanation 이며, 원본 코드 줄 내용과 hunk line 이 우선한다.
-      </p>
-      <div class="code-change-layout" id="code-changes">
-        <nav class="code-file-list" aria-label="diff hunk 파일 목록">
-          {{code_change_file_list}}
-        </nav>
-        <div class="code-diff-view">
-          {{code_change_sections}}
-        </div>
-      </div>
-      <template id="code-change-section-template">
-        <article class="diff-file">
-          <div class="diff-file-header">
-            <code>{{file_path}}</code>
-            <span class="pill">{{language}}</span>
-            <span class="pill">{{change_kind}}</span>
-            <span class="pill">{{author_roles}}</span>
-          </div>
-          <div class="hunk">
-            <div class="hunk-heading">
-              <code>{{hunk_heading}}</code>
-              <p class="hunk-summary">{{hunk_summary_ko}}</p>
-            </div>
-            <ol class="diff-lines">
-              {{code_change_line_rows}}
-            </ol>
-            <ul class="hunk-explanations">
-              {{code_change_explanations}}
-            </ul>
-          </div>
-        </article>
-      </template>
-    </section>
+  <section id="audit" class="section" aria-labelledby="audit-title">
+    <h2 id="audit-title">보고서 신뢰성 검증</h2>
+    <div class="record-list">
+      <article class="audit-readable">
+        <span>사용자가 먼저 읽을 의미</span>
+        <strong>원문 증거 검증 상태</strong>
+        <p>audit 는 작업 성공/실패 판정이 아니라 이 보고서가 참조해야 할 원문 evidence 와 metadata 가 충분한지 확인하는 신뢰성 검증이다. 신뢰성 검증의 fail 상태는 작업 실패가 아니라 원문 증거 누락/불완전 상태를 뜻한다.</p>
+      </article>
+      <article class="card">
+        <span>누락 evidence / 입력</span>
+        <strong>보고서 evidence 한계</strong>
+        <pre>{{missing_evidence}}</pre>
+        <pre>{{missing_inputs}}</pre>
+      </article>
+      <details class="technical-details audit-diagnostic-details">
+        <summary>보고서 신뢰성 진단 기술 상세</summary>
+        <p>trace_audit/findings 와 trace_audit_command 는 작업 실패 판정이 아니라 보고서 evidence 를 점검한 기술 진단이다.</p>
+        <table class="metadata-table">
+          <tbody>
+            <tr><th scope="row">trace_audit/findings</th><td><pre>{{trace_audit_findings}}</pre></td></tr>
+            <tr><th scope="row">trace_audit_command</th><td><pre>{{trace_audit_command}}</pre></td></tr>
+            <tr><th scope="row">audit.status</th><td><code>audit.status={{audit_status}}</code></td></tr>
+            <tr><th scope="row">evidence_status</th><td><code>evidence_status={{evidence_status}}</code></td></tr>
+          </tbody>
+        </table>
+      </details>
+    </div>
+  </section>
 
-    <section>
-      <h2>테스트 명령/결과 원문 evidence</h2>
-      <p class="empty">command/result/output 원문 객체가 없으면 요약으로 복원하지 않고 missing evidence 로 기록한다.</p>
-      <p id="verification-result" class="empty">{{verification_result}}</p>
-      <table>
-        <thead>
-          <tr>
-            <th>명령</th>
-            <th>담당</th>
-            <th>결과</th>
-            <th>근거</th>
-          </tr>
-        </thead>
-        <tbody id="command-rows">
-          {{command_rows}}
-        </tbody>
-      </table>
-    </section>
+  <section id="changed-files" class="section" aria-labelledby="changed-files-title">
+    <h2 id="changed-files-title">changed_files 색인</h2>
+    <article class="card">
+      <span class="derived-label">derived/display index</span>
+      <strong>changed_files</strong>
+      <pre>{{changed_files}}</pre>
+    </article>
+  </section>
 
-    <section>
-      <h2>감사와 제한</h2>
-      <div class="grid">
-        <div class="kv">
-          <strong>audit status</strong>
-          <span id="audit-status">{{audit_status}}</span>
-        </div>
-        <div class="kv">
-          <strong>missing evidence</strong>
-          <span id="missing-evidence">{{missing_evidence}}</span>
-        </div>
-        <div class="kv">
-          <strong>derived summary, not verbatim</strong>
-          <span id="derived-not-verbatim">{{derived_not_verbatim}}</span>
-        </div>
-        <div class="kv">
-          <strong>missing inputs</strong>
-          <span id="missing-inputs">{{missing_inputs}}</span>
-        </div>
-        <div class="kv">
-          <strong>excluded code changes</strong>
-          <span id="excluded-code-changes">{{excluded_code_changes}}</span>
-        </div>
-        <div class="kv">
-          <strong>trace audit failure/findings</strong>
-          <span id="trace-audit-findings">{{trace_audit_findings}}</span>
-        </div>
-        <div class="kv">
-          <strong>limitations</strong>
-          <span id="limitations">{{limitations}}</span>
-        </div>
-      </div>
-    </section>
+  <section id="diff-index" class="section" aria-labelledby="diff-index-title">
+    <h2 id="diff-index-title">Diff 전용 artifact 색인</h2>
+    <div class="record-list">
+      <article class="card">
+        <span>canonical route</span>
+        <strong><a href="/reports/{{cycle_id}}/diff.html">/reports/{{cycle_id}}/diff.html</a></strong>
+        <p>아래 값은 파일/hunk anchor 색인이다. 전체 code line 은 diff.html 에서만 렌더링한다.</p>
+      </article>
+      {{code_change_anchor_index}}
+    </div>
+  </section>
 
-    <section>
-      <h2>원본 artifact</h2>
-      <p class="empty">원본 context bundle, trace export, 제외/audit 기록은 아래 artifact 에 보존한다. 화면은 이 원문을 재작성하거나 fallback 생성하지 않는다.</p>
-      <p class="artifact-links">
-        <a href="./report.json">report.json</a> ·
-        <a href="./raw.json">raw.json</a> ·
-        <a href="./audit.json">audit.json</a> ·
-        <a href="./context.md">context.md</a>
-      </p>
-    </section>
-  </main>
+  <section id="raw-context" class="section" aria-labelledby="raw-context-title">
+    <h2 id="raw-context-title">raw/context drill-down</h2>
+    <div class="record-list">
+      <details><summary>raw.json</summary><pre>{{raw_json}}</pre></details>
+      <details><summary>audit.json</summary><pre>{{audit_json}}</pre></details>
+      <details><summary>context.md</summary><pre>{{context_md}}</pre></details>
+    </div>
+  </section>
+</main>
 </body>
 </html>

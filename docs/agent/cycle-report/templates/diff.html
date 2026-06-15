@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xavi Cycle Report Diff</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f5f6f8;
+  --ink: #20242b;
+  --muted: #646b76;
+  --line: #d9dee6;
+  --panel: #ffffff;
+  --accent: #146c5f;
+  --warn-soft: #fff6e3;
+  --danger-soft: #fff1f1;
+  --good-soft: #eef8f1;
+  --blue-soft: #eef4fb;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+a { color: inherit; }
+.wrap-toggle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.topbar {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
+  background: #ffffff;
+}
+.brand { display: grid; gap: 2px; min-width: 0; }
+.brand strong { font-size: 17px; }
+.brand span { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.btn {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 0 12px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+#wrap-toggle:checked ~ .topbar label[for="wrap-toggle"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+.shell {
+  width: calc(100vw - 24px);
+  margin: 0 auto;
+  padding: 18px 0 34px;
+  display: grid;
+  gap: 18px;
+}
+.hero {
+  display: grid;
+  gap: 10px;
+  padding: 8px 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.hero h1 { margin: 0; font-size: 30px; line-height: 1.12; letter-spacing: 0; }
+.hero p { margin: 0; color: #3b4048; line-height: 1.6; max-width: 960px; }
+.warning-banner {
+  border: 1px solid #e0b36a;
+  border-radius: 6px;
+  background: var(--warn-soft);
+  color: #6f4700;
+  padding: 10px 12px;
+  line-height: 1.55;
+}
+.sticky-nav {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.96);
+}
+.sticky-nav a {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  text-decoration: none;
+  background: #ffffff;
+}
+.diff-file {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.diff-file + .diff-file { margin-top: 12px; }
+.diff-file-header {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  background: #fbfcfd;
+}
+.diff-file-title { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.diff-file-title strong { overflow-wrap: anywhere; }
+.diff-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+.diff-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 8px;
+  color: var(--muted);
+  background: #ffffff;
+  font-size: 12px;
+}
+.diff-summary { margin: 0; color: #3b4048; line-height: 1.55; overflow-wrap: anywhere; }
+.diff-hunk { display: grid; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+.diff-hunk:first-of-type { border-top: 0; }
+.diff-hunk-heading {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  color: #2d5c88;
+}
+.diff-hunk-summary,
+.diff-explanations { margin: 0; color: #3b4048; line-height: 1.55; overflow-wrap: anywhere; }
+.diff-explanations { display: grid; gap: 6px; padding: 8px 10px; background: var(--blue-soft); border-radius: 6px; }
+.code-viewport {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+}
+.diff-table {
+  display: grid;
+  min-width: max-content;
+}
+.diff-line {
+  display: grid;
+  grid-template-columns: 72px 72px minmax(720px, max-content);
+  min-height: 28px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.diff-line span { padding: 4px 8px; border-right: 1px solid rgba(0,0,0,0.06); }
+.diff-line code {
+  padding: 4px 8px;
+  white-space: pre;
+  overflow-wrap: normal;
+  background: transparent;
+}
+#wrap-toggle:checked ~ .shell .diff-line code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.diff-line.add { background: var(--good-soft); }
+.diff-line.remove { background: var(--danger-soft); }
+.diff-line.context { background: #ffffff; }
+.diff-line .line-no { color: var(--muted); text-align: right; user-select: none; }
+@media (max-width: 860px) {
+  .topbar { align-items: flex-start; flex-direction: column; padding: 12px 14px; }
+  .actions { justify-content: flex-start; }
+}
+</style>
+</head>
+<body>
+<input id="wrap-toggle" class="wrap-toggle" type="checkbox">
+<header class="topbar">
+  <div class="brand">
+    <strong>Xavi cycle diff</strong>
+    <span>{{cycle_id}} · prebuilt diff.html</span>
+  </div>
+  <nav class="actions" aria-label="diff artifact links">
+    <a class="btn" href="/reports/{{cycle_id}}/">메인 report</a>
+    <a class="btn" href="/api/reports/{{cycle_id}}/report.json">report.json</a>
+    <label class="btn" for="wrap-toggle">줄바꿈</label>
+    <a class="btn primary" href="#diff-files">diff hunk</a>
+  </nav>
+</header>
+<main class="shell">
+  <section class="hero">
+    <h1>Diff 전용 artifact</h1>
+    <p>이 페이지는 report.json.code_changes[] 의 파일, hunk, line evidence 를 전체 렌더링한다.</p>
+    <p>기본 code line 표시는 white-space: pre 와 horizontal scroll 이다. 줄바꿈 토글은 표시 방식만 바꾼다.</p>
+    {{evidence_audit_warning}}
+  </section>
+  <nav class="sticky-nav" aria-label="file and hunk anchors">
+    {{file_and_hunk_nav}}
+  </nav>
+  <section id="diff-files" aria-labelledby="diff-files-title">
+    <h2 id="diff-files-title">파일별 diff hunk</h2>
+    {{code_changes_diff}}
+  </section>
+</main>
+</body>
+</html>

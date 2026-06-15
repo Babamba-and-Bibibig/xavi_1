@@ -5,17 +5,19 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use xavi_dev_console::{
-    ChromeLaunchConfig, DEFAULT_BIND_ADDR, DEFAULT_CHROME_PATH, DEFAULT_CHROME_PROFILE_PATH,
-    DEFAULT_OPEN_CYCLE_HOST, DEFAULT_OPEN_CYCLE_PORT, DEFAULT_REMOTE_DEBUGGING_PORT,
-    DEFAULT_REPORT_LIMIT, DEFAULT_REPORTS_ROOT_PATH, DEFAULT_TRACE_DB_PATH, DevConsoleConfig,
-    OpenCycleBrowserMode, OpenCycleConfig, OpenCycleServerStatus,
-    copy_cycle_report_artifact_bundle, open_cycle_report, run_server, run_server_with_chrome,
-    validate_cycle_report_artifact_bundle,
+    DEFAULT_BIND_ADDR, DEFAULT_OPEN_CYCLE_HOST, DEFAULT_OPEN_CYCLE_PORT, DEFAULT_REPORT_LIMIT,
+    DEFAULT_REPORTS_ROOT_PATH, DEFAULT_TRACE_DB_PATH, DevConsoleConfig, OpenCycleBrowserMode,
+    OpenCycleConfig, OpenCycleServerStatus, copy_cycle_report_artifact_bundle, open_cycle_report,
+    run_server, validate_cycle_report_artifact_bundle,
 };
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let args = env::args().skip(1).collect::<Vec<_>>();
     let command = args.first().filter(|arg| !arg.starts_with("--")).map_or("serve", String::as_str);
+    if should_print_help(command, &args) {
+        print_help();
+        return Ok(());
+    }
     let options = CliOptions::parse(
         if matches!(command, "serve" | "export" | "open-cycle")
             && args.first().is_some_and(|arg| arg == command)
@@ -42,23 +44,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         "serve" => {
             let config =
                 DevConsoleConfig { cycle_id, db_path, bind_addr, report_limit, reports_dir };
-            if options.flag("launch-chrome") {
-                let chrome_config = ChromeLaunchConfig {
-                    chrome_path: PathBuf::from(
-                        options.value("chrome-path").unwrap_or(DEFAULT_CHROME_PATH),
-                    ),
-                    profile_dir: PathBuf::from(
-                        options.value("chrome-profile").unwrap_or(DEFAULT_CHROME_PROFILE_PATH),
-                    ),
-                    remote_debugging_port: options
-                        .value("remote-debugging-port")
-                        .and_then(|value| value.parse::<u16>().ok())
-                        .unwrap_or(DEFAULT_REMOTE_DEBUGGING_PORT),
-                };
-                run_server_with_chrome(&config, &chrome_config)
-            } else {
-                run_server(&config)
-            }
+            run_server(&config)
         }
         "export" => {
             if let Some(output_dir) = options.value("out").map(PathBuf::from) {
@@ -108,6 +94,30 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     }
 }
 
+fn should_print_help(command: &str, args: &[String]) -> bool {
+    if matches!(command, "help" | "-h") {
+        return true;
+    }
+    if command == "serve" && args.first().is_some_and(|arg| is_help_arg(arg)) {
+        return true;
+    }
+    if matches!(command, "serve" | "export" | "open-cycle")
+        && args.first().is_some_and(|arg| arg == command)
+        && args.iter().skip(1).any(|arg| is_help_option(arg))
+    {
+        return true;
+    }
+    false
+}
+
+fn is_help_arg(arg: &str) -> bool {
+    matches!(arg, "--help" | "-h" | "help")
+}
+
+fn is_help_option(arg: &str) -> bool {
+    matches!(arg, "--help" | "-h")
+}
+
 fn cycle_report_dir(reports_dir: &str, cycle_id: &str) -> PathBuf {
     PathBuf::from(reports_dir).join(cycle_id)
 }
@@ -131,8 +141,7 @@ fn print_help() {
         "\
 xavi-dev-console commands:
   serve [--cycle <id>] [--db <path>] [--addr 127.0.0.1:4176] [--limit <n>]
-        [--reports-dir <path>] [--launch-chrome] [--chrome-path <path>]
-        [--chrome-profile <path>] [--remote-debugging-port <port>]
+        [--reports-dir <path>]
   export [--cycle <id>] [--reports-dir <path>] [--out <dir>]
         verifies an existing cycle-report artifact; with --out, copies that bundle
   open-cycle --cycle-id <id> [--reports-dir <path>] [--host 127.0.0.1] [--port 4200]
@@ -143,10 +152,7 @@ defaults:
   --db   .xavi/development_trace.sqlite3
   --addr 127.0.0.1:4176
   --reports-dir .xavi/reports/development_cycles
-  open-cycle --host 127.0.0.1 --port 4200
-  --chrome-path /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
-  --chrome-profile .xavi/chrome-dev-console-profile
-  --remote-debugging-port 9223"
+  open-cycle --host 127.0.0.1 --port 4200"
     );
 }
 
